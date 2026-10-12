@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+.env
+node_modules/
+dist/
+.vite/
+coverage/
+htmlcov/
+*.log
+*.db
+.claude/
+.wpp_backup/
+_rename_backup/
