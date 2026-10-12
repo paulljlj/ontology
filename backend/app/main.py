@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
+from app.api.report_routes import router as report_router
 from app.infrastructure.config import settings
 from app.infrastructure.database import Base, engine, session_scope
 from app.infrastructure.seed import seed_database
@@ -37,6 +38,7 @@ app.add_middleware(
 )
 
 app.include_router(router, prefix="/api")
+app.include_router(report_router, prefix="/api")
 
 
 @app.get("/")

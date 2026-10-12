@@ -13,3 +13,4 @@ htmlcov/
 .claude/
 .wpp_backup/
 _rename_backup/
+backend/report_artifacts/

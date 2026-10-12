@@ -1,7 +1,7 @@
 """MCP server exposing ontology tools over the FastMCP stdio transport."""
-from __future__ import annotations
 
 import sys
+import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -11,8 +11,16 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from mcp.server.fastmcp import FastMCP  # noqa: E402
+from pydantic import Field  # noqa: E402
 
 from app.application import ontology_service, workflows  # noqa: E402
+from app.application.report_workflow import (  # noqa: E402
+    ARTIFACT_ROOT,
+    create_workflow_run,
+    execute_workflow_run,
+    get_workflow_snapshot,
+    profile_tables,
+)
 from app.application.ontology_service import (  # noqa: E402
     read_instance,
     read_relation,
@@ -20,10 +28,12 @@ from app.application.ontology_service import (  # noqa: E402
 )
 from app.domain import ontology, reasoner  # noqa: E402
 from app.domain.constants import ClassName, RelationType  # noqa: E402
-from app.infrastructure import feishu_client, feishu_events, graph_db, mock_integrations  # noqa: E402
+from app.infrastructure import graph_db, mock_integrations  # noqa: E402
 from app.infrastructure.config import settings  # noqa: E402
 from app.infrastructure.database import session_scope  # noqa: E402
 from app.infrastructure.orm import ApprovalMappingORM  # noqa: E402
+from app.infrastructure.orm import new_id  # noqa: E402
+from app.infrastructure.tabular_files import read_tabular  # noqa: E402
 
 
 mcp = FastMCP("ontology-ai", instructions="Tools backed by the ontology platform.")
@@ -52,16 +62,16 @@ def _normalize_edge(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-@mcp.tool()
-def search_ontology(query: str, class_name: str | None = None, status: str | None = None, limit: int = 20) -> list[dict[str, Any]]:
+@mcp.tool(structured_output=False)
+def search_ontology(query: str = Field(...), class_name: str | None = None, status: str | None = None, limit: int = 20) -> list[dict[str, Any]]:
     """Search instances in the ontology."""
     with session_scope() as session:
         items = ontology_service.list_instances(session, class_name=class_name, q=query, status=status)
     return [item.model_dump(mode="json") for item in items[:limit]]
 
 
-@mcp.tool()
-def describe_class(class_name: str) -> dict[str, Any]:
+@mcp.tool(structured_output=False)
+def describe_class(class_name: str = Field(...)) -> dict[str, Any]:
     """Return the OWL-derived schema for a class."""
     if ontology.get_class(class_name) is None:
         raise ValueError(f"Class not found: {class_name}")
@@ -82,10 +92,10 @@ def describe_class(class_name: str) -> dict[str, Any]:
     }
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def create_instance(
-    class_name: str,
-    title: str,
+    class_name: str = Field(...),
+    title: str = Field(...),
     status: str = "draft",
     properties: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -112,8 +122,8 @@ def create_instance(
     return payload
 
 
-@mcp.tool()
-def relate(source_id: str, target_id: str, relation_type: str, properties: dict[str, Any] | None = None) -> dict[str, Any]:
+@mcp.tool(structured_output=False)
+def relate(source_id: str = Field(...), target_id: str = Field(...), relation_type: str = Field(...), properties: dict[str, Any] | None = None) -> dict[str, Any]:
     """Create a relation between two instances."""
     properties = properties or {}
     with session_scope() as session:
@@ -138,7 +148,7 @@ def relate(source_id: str, target_id: str, relation_type: str, properties: dict[
     return payload
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def query_graph(root_id: str | None = None, depth: int = 3, limit: int = 80) -> dict[str, Any]:
     """Return a sub-graph rooted at root_id (or the first N instances if root_id is omitted)."""
     raw = graph_db.fetch_graph(root_id=root_id, depth=depth, limit=limit)
@@ -148,7 +158,7 @@ def query_graph(root_id: str | None = None, depth: int = 3, limit: int = 80) -> 
     }
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def search_logs(service: str | None = None, level: str | None = None, q: str | None = None) -> list[dict[str, Any]]:
     """Run the mock log integration and return matched log instances."""
     with session_scope() as session:
@@ -156,7 +166,7 @@ def search_logs(service: str | None = None, level: str | None = None, q: str | N
     return [item.model_dump(mode="json") for item in result.get("logs", [])]
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def trigger_jenkins(feature_id: str | None = None, environment: str = "staging") -> dict[str, Any]:
     """Trigger the mock Jenkins job for a Feature."""
     if feature_id is None:
@@ -166,10 +176,71 @@ def trigger_jenkins(feature_id: str | None = None, environment: str = "staging")
     return {key: value.model_dump(mode="json") for key, value in result.items() if hasattr(value, "model_dump")}
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
+def inspect_tabular_file(path: str = Field(...)) -> dict[str, Any]:
+    """Inspect one workspace CSV/XLSX file and return its schema and quality profile."""
+    source = _safe_workspace_table(path)
+    tables = read_tabular(source)
+    return {
+        "file": source.name,
+        "tables": [
+            {"name": table.name, "headers": table.headers, "rows": len(table.rows)} for table in tables
+        ],
+        "profile": profile_tables(tables),
+    }
+
+
+@mcp.tool(structured_output=False)
+def execute_data_report(requirement: str = Field(...), input_paths: list[str] = Field(...), title: str = "数据整理与报表生成") -> dict[str, Any]:
+    """Compile a data-report Skill, execute its Task DAG, and return verified artifacts."""
+    if not requirement.strip() or not input_paths:
+        raise ValueError("requirement and at least one input path are required")
+    run_id = new_id()
+    input_directory = ARTIFACT_ROOT / run_id / "inputs"
+    input_directory.mkdir(parents=True, exist_ok=True)
+    inputs: list[dict[str, Any]] = []
+    for path in input_paths:
+        source = _safe_workspace_table(path)
+        destination = input_directory / source.name
+        if destination.exists():
+            destination = input_directory / f"{source.stem}-{len(inputs) + 1}{source.suffix}"
+        shutil.copy2(source, destination)
+        inputs.append(
+            {
+                "name": source.name,
+                "stored_name": destination.name,
+                "path": str(destination.resolve()),
+                "size": destination.stat().st_size,
+                "content_type": "text/csv" if source.suffix.lower() == ".csv" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            }
+        )
+    create_workflow_run(requirement, title, inputs, run_id=run_id)
+    execute_workflow_run(run_id)
+    return get_workflow_snapshot(run_id)
+
+
+@mcp.tool(structured_output=False)
+def get_execution_run(run_id: str = Field(...)) -> dict[str, Any]:
+    """Return Task, Skill, evidence, status, and artifacts for a WorkflowRun."""
+    return get_workflow_snapshot(run_id)
+
+
+def _safe_workspace_table(path: str) -> Path:
+    source = Path(path).expanduser().resolve()
+    workspace_root = ROOT.parent.resolve()
+    try:
+        source.relative_to(workspace_root)
+    except ValueError as exc:
+        raise ValueError("Data tools may only read CSV/XLSX files inside the workspace") from exc
+    if source.suffix.lower() not in {".csv", ".xlsx"} or not source.is_file():
+        raise ValueError("Input must be an existing workspace CSV or XLSX file")
+    return source
+
+
+@mcp.tool(structured_output=False)
 def send_feishu_message(
-    chat_id: str,
-    content: str,
+    chat_id: str = Field(...),
+    content: str = Field(...),
     related_instance_id: str | None = None,
 ) -> dict[str, Any]:
     """Send a Feishu (Lark) text message; creates a FeishuMessage instance on success.
@@ -184,6 +255,8 @@ def send_feishu_message(
     Returns:
         ``{message: OntologyInstanceRead, feishu_response: {...}}``
     """
+    from app.infrastructure import feishu_client
+
     if not chat_id or not content:
         raise ValueError("chat_id and content are required")
     send_result = feishu_client.send_message(chat_id, content)
@@ -245,9 +318,9 @@ def send_feishu_message(
     return {"message": payload, "feishu_response": send_result}
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def create_spec_approval(
-    spec_id: str,
+    spec_id: str = Field(...),
     approver_open_id: str = "",
 ) -> dict[str, Any]:
     """Create a Feishu approval instance for a Spec.
@@ -264,6 +337,8 @@ def create_spec_approval(
     Returns:
         ``{spec_id, approval: {...}, feishu_message_id, via}``
     """
+    from app.infrastructure import feishu_client, feishu_events
+
     with session_scope() as session:
         spec = ontology_service.get_instance_or_404(session, spec_id)
         if spec.ontology_class.name != ClassName.SPEC:
@@ -357,14 +432,16 @@ def create_spec_approval(
     }
 
 
-@mcp.tool()
-def check_approval_status(instance_code: str) -> dict[str, Any]:
+@mcp.tool(structured_output=False)
+def check_approval_status(instance_code: str = Field(...)) -> dict[str, Any]:
     """Poll a Feishu approval instance and return its current status.
 
     Useful when WebSocket events aren't connected (e.g. local dev without
     lark_oapi installed). For a long-running watcher, prefer the background
     listener in ``app.infrastructure.feishu_events``.
     """
+    from app.infrastructure import feishu_client
+
     if not instance_code:
         raise ValueError("instance_code is required")
     return feishu_client.get_approval_status(instance_code)

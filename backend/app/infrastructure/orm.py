@@ -10,11 +10,11 @@ from datetime import datetime
 from uuid import uuid4
 # uuid4 用来生成全局唯一随机字符串ID
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
 # 数据库字段类型：时间、外键、字符串、长文本；func代表数据库内置函数
 from sqlalchemy.dialects.postgresql import JSONB
 # PostgreSQL专用JSONB类型（支持索引、高效查询JSON内部字段）
-from sqlalchemy.ext.mutable import MutableDict
+from sqlalchemy.ext.mutable import MutableDict, MutableList
 # 可变字典包装，让SQLAlchemy识别字典修改并自动更新数据库
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 # Mapped类型注解、字段定义、表关联关系
@@ -33,6 +33,7 @@ def new_id() -> str:
 
 
 JsonType = JSON().with_variant(JSONB, "postgresql")
+JsonListType = JSON().with_variant(JSONB, "postgresql")
 # 兼容多数据库JSON类型定义
 # 当数据库是PostgreSQL，使用性能更强的JSONB（支持JSON内部字段索引、查询）；
 # 其他数据库自动降级为标准JSON类型。
@@ -126,3 +127,66 @@ class ApprovalMappingORM(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+
+
+class WorkflowRunORM(Base):
+    """一次从自然语言需求到最终产物的通用执行记录。"""
+
+    __tablename__ = "workflow_runs"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    workflow_type: Mapped[str] = mapped_column(String(80), default="data_report", index=True)
+    title: Mapped[str] = mapped_column(String(240))
+    requirement: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(40), default="planning", index=True)
+    result_contract: Mapped[dict] = mapped_column(MutableDict.as_mutable(JsonType), default=dict)
+    input_files: Mapped[list] = mapped_column(MutableList.as_mutable(JsonListType), default=list)
+    summary: Mapped[dict] = mapped_column(MutableDict.as_mutable(JsonType), default=dict)
+    error: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ExecutionTaskORM(Base):
+    """可执行 Task；通过 skill_spec 绑定抽象能力与实际 MCP 工具。"""
+
+    __tablename__ = "execution_tasks"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    run_id: Mapped[str] = mapped_column(ForeignKey("workflow_runs.id"), index=True)
+    task_key: Mapped[str] = mapped_column(String(80), index=True)
+    order_index: Mapped[int] = mapped_column(Integer)
+    title: Mapped[str] = mapped_column(String(240))
+    description: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(40), default="pending", index=True)
+    skill_spec: Mapped[dict] = mapped_column(MutableDict.as_mutable(JsonType), default=dict)
+    inputs: Mapped[list] = mapped_column(MutableList.as_mutable(JsonListType), default=list)
+    outputs: Mapped[list] = mapped_column(MutableList.as_mutable(JsonListType), default=list)
+    evidence: Mapped[dict] = mapped_column(MutableDict.as_mutable(JsonType), default=dict)
+    error: Mapped[str] = mapped_column(Text, default="")
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ArtifactORM(Base):
+    """Task 生成的可下载结果、验证证据或中间产物。"""
+
+    __tablename__ = "artifacts"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    run_id: Mapped[str] = mapped_column(ForeignKey("workflow_runs.id"), index=True)
+    task_id: Mapped[str | None] = mapped_column(ForeignKey("execution_tasks.id"), nullable=True, index=True)
+    name: Mapped[str] = mapped_column(String(240))
+    kind: Mapped[str] = mapped_column(String(80), index=True)
+    path: Mapped[str] = mapped_column(Text)
+    mime_type: Mapped[str] = mapped_column(String(160), default="application/octet-stream")
+    size: Mapped[int] = mapped_column(Integer, default=0)
+    artifact_metadata: Mapped[dict] = mapped_column(
+        "metadata", MutableDict.as_mutable(JsonType), default=dict
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

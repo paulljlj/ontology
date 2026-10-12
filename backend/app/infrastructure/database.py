@@ -19,7 +19,11 @@ class Base(DeclarativeBase):
     pass #空类，不需要额外代码；DeclarativeBase 内部自动实现元数据管理、表映射逻辑。
 
 
-engine = create_engine(settings.database_url, pool_pre_ping=True) 
+engine = create_engine(
+    settings.database_url,
+    pool_pre_ping=True,
+    connect_args={"check_same_thread": False} if settings.database_url.startswith("sqlite") else {},
+)
 # engine 只管连接管理，不负责事务、CRUD；真正操作数据库靠 Session。
 # create_engine()：SQLAlchemy 创建数据库引擎，是底层数据库连接核心对象。
 # settings.database_url：数据库连接地址字符

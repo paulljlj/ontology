@@ -12,6 +12,8 @@
 - 运行 Checklist，检查 Feature 是否缺少 Spec、Plan、Task。
 - 触发 Mock Jenkins 构建，并查询 Mock Service Log。
 - 阅读清晰的中文文档，理解每层代码在做什么。
+- 输入数据整理目标并上传 CSV/XLSX，查看 Task、Skill、MCP 能力绑定的执行过程。
+- 下载清洗数据、Excel 分析报表、结果摘要和可追溯执行清单。
 
 ## 技术栈
 
@@ -53,6 +55,17 @@ npm run dev
 ```text
 http://localhost:5173
 ```
+
+进入页面后点击左侧“数据整理与报表”：
+
+1. 用自然语言描述数据整理目标和期望指标。
+2. 上传一个或多个 CSV/XLSX 文件。
+3. 系统动态生成结果合同、Task DAG 和临时 Skill。
+4. 页面实时展示字段识别、质量分析、清洗、汇总、报表生成和验证状态。
+5. 执行完成后下载清洗 CSV、Excel 报表、结果摘要和执行清单。
+
+同一能力也通过 MCP 暴露为 `inspect_tabular_file`、`execute_data_report` 和
+`get_execution_run`，供外部 Agent 编排调用。
 
 ### 3. 不使用 Docker 启动后端
 

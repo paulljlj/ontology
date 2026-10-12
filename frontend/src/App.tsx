@@ -2,6 +2,7 @@ import {
   Activity,
   Boxes,
   CheckCircle2,
+  FileSpreadsheet,
   GitBranch,
   GitCommitHorizontal,
   Loader2,
@@ -18,6 +19,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
 import type { Graph, OntologyClass, OntologyInstance } from "./types";
 import Topology from "./components/Topology";
+import { ReportWorkbench } from "./components/ReportWorkbench";
 
 const CORE_CLASSES = ["Project", "Feature", "Spec", "Plan", "Task", "Checklist", "ExecutionLog", "ServiceLog"];
 const PRIORITY_OPTIONS = [
@@ -42,6 +44,7 @@ const EMPTY_COMPOSER: ComposerState = {
 };
 
 export function App() {
+  const [workspaceMode, setWorkspaceMode] = useState<"ontology" | "report">("ontology");
   const [classes, setClasses] = useState<OntologyClass[]>([]);
   const [instances, setInstances] = useState<OntologyInstance[]>([]);
   const [graph, setGraph] = useState<Graph>({ nodes: [], edges: [] });
@@ -238,6 +241,10 @@ export function App() {
     return counts;
   }, [graph.nodes]);
 
+  if (workspaceMode === "report") {
+    return <ReportWorkbench onBack={() => setWorkspaceMode("ontology")} />;
+  }
+
   return (
     <main className="shell">
       <aside className="sidebar">
@@ -248,6 +255,10 @@ export function App() {
             <span>Coding Workbench</span>
           </div>
         </div>
+        <button className="workspaceSwitch" onClick={() => setWorkspaceMode("report")}>
+          <FileSpreadsheet size={17} />
+          <span>数据整理与报表</span>
+        </button>
         <nav className="classNav">
           {classes
             .filter((item) => CORE_CLASSES.includes(item.name))

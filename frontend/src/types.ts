@@ -32,3 +32,62 @@ export type Graph = {
   nodes: OntologyInstance[];
   edges: OntologyRelation[];
 };
+
+export type ExecutionTask = {
+  id: string;
+  task_key: string;
+  order_index: number;
+  title: string;
+  description: string;
+  status: "pending" | "running" | "succeeded" | "failed";
+  skill_spec: {
+    name?: string;
+    required_capabilities?: string[];
+    mcp_bindings?: string[];
+    permission_policy?: string;
+  };
+  inputs: unknown[];
+  outputs: unknown[];
+  evidence: Record<string, unknown>;
+  error: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+};
+
+export type ReportArtifact = {
+  id: string;
+  task_id?: string | null;
+  name: string;
+  kind: string;
+  mime_type: string;
+  size: number;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  download_url: string;
+};
+
+export type ReportRun = {
+  id: string;
+  workflow_type: string;
+  title: string;
+  requirement: string;
+  status: "planning" | "running" | "succeeded" | "failed";
+  result_contract: {
+    goal?: string;
+    inputs?: string[];
+    operations?: string[];
+    dimensions?: string[];
+    metrics?: string[];
+    deliverables?: string[];
+    acceptance_criteria?: string[];
+  };
+  input_files: Array<{ name: string; size: number }>;
+  summary: Record<string, number>;
+  error: string;
+  created_at: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  updated_at: string;
+  tasks: ExecutionTask[];
+  artifacts: ReportArtifact[];
+};

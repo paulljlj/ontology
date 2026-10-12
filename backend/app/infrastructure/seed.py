@@ -17,9 +17,9 @@ def _owl_schema_for(class_name: str) -> dict:
 
 
 def seed_database(session: Session) -> None:
-    existing_count = session.query(OntologyClassORM).count()
-    if existing_count == 0:
-        for class_name in ontology.list_classes():
+    existing_names = set(session.scalars(select(OntologyClassORM.name)).all())
+    for class_name in ontology.list_classes():
+        if class_name not in existing_names:
             schema = _owl_schema_for(class_name)
             session.add(
                 OntologyClassORM(
@@ -32,7 +32,7 @@ def seed_database(session: Session) -> None:
                     },
                 )
             )
-        session.flush()
+    session.flush()
 
     project_class = session.scalar(
         select(OntologyClassORM).where(OntologyClassORM.name == ClassName.PROJECT)
