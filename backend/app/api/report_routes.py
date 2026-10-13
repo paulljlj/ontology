@@ -2,66 +2,30 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.application.report_workflow import ARTIFACT_ROOT, create_workflow_run, execute_workflow_run
-from app.domain.report_schemas import WorkflowRunRead
+from app.domain.report_schemas import WorkflowRunCreate, WorkflowRunRead
 from app.infrastructure.database import get_session
 from app.infrastructure.orm import ArtifactORM, ExecutionTaskORM, WorkflowRunORM, new_id
 
 
 router = APIRouter(prefix="/report-runs", tags=["data-report-execution"])
-MAX_FILE_SIZE = 25 * 1024 * 1024
-SUPPORTED_SUFFIXES = {".csv", ".xlsx"}
-
-
 @router.post("", response_model=WorkflowRunRead, status_code=202)
-async def create_report_run(
+def create_report_run(
+    payload: WorkflowRunCreate,
     background_tasks: BackgroundTasks,
-    requirement: str = Form(...),
-    title: str = Form("数据整理与报表生成"),
-    files: list[UploadFile] = File(...),
     session: Session = Depends(get_session),
 ):
-    if len(requirement.strip()) < 8:
+    requirement = payload.requirement.strip()
+    if len(requirement) < 8:
         raise HTTPException(status_code=422, detail="请更完整地描述数据整理目标和期望报表。")
-    if not files:
-        raise HTTPException(status_code=422, detail="请至少上传一个 CSV 或 XLSX 文件。")
 
     run_id = new_id()
-    input_directory = ARTIFACT_ROOT / run_id / "inputs"
-    input_directory.mkdir(parents=True, exist_ok=True)
-    stored_files: list[dict] = []
-    used_names: set[str] = set()
-    for upload in files:
-        original_name = Path(upload.filename or "data").name
-        suffix = Path(original_name).suffix.lower()
-        if suffix not in SUPPORTED_SUFFIXES:
-            raise HTTPException(status_code=415, detail=f"不支持 {original_name}；首版支持 CSV 和 XLSX。")
-        safe_name = _unique_name(original_name, used_names)
-        destination = input_directory / safe_name
-        size = 0
-        with destination.open("wb") as handle:
-            while chunk := await upload.read(1024 * 1024):
-                size += len(chunk)
-                if size > MAX_FILE_SIZE:
-                    destination.unlink(missing_ok=True)
-                    raise HTTPException(status_code=413, detail=f"{original_name} 超过 25 MB 限制。")
-                handle.write(chunk)
-        stored_files.append(
-            {
-                "name": original_name,
-                "stored_name": safe_name,
-                "path": str(destination.resolve()),
-                "size": size,
-                "content_type": upload.content_type or "application/octet-stream",
-            }
-        )
-
-    create_workflow_run(requirement, title, stored_files, run_id=run_id)
+    create_workflow_run(requirement, payload.title, [], run_id=run_id)
     background_tasks.add_task(execute_workflow_run, run_id)
     run = session.get(WorkflowRunORM, run_id)
     if not run:
@@ -153,14 +117,3 @@ def _serialize_run(session: Session, run: WorkflowRunORM) -> dict:
             for artifact in artifacts
         ],
     }
-
-
-def _unique_name(name: str, used: set[str]) -> str:
-    path = Path(name)
-    candidate = path.name
-    index = 2
-    while candidate.lower() in used:
-        candidate = f"{path.stem}_{index}{path.suffix}"
-        index += 1
-    used.add(candidate.lower())
-    return candidate

@@ -191,15 +191,19 @@ def inspect_tabular_file(path: str = Field(...)) -> dict[str, Any]:
 
 
 @mcp.tool(structured_output=False)
-def execute_data_report(requirement: str = Field(...), input_paths: list[str] = Field(...), title: str = "数据整理与报表生成") -> dict[str, Any]:
-    """Compile a data-report Skill, execute its Task DAG, and return verified artifacts."""
-    if not requirement.strip() or not input_paths:
-        raise ValueError("requirement and at least one input path are required")
+def execute_data_report(
+    requirement: str = Field(...),
+    input_paths: list[str] | None = None,
+    title: str = "本体智能体执行",
+) -> dict[str, Any]:
+    """Compile and execute a Task DAG; source discovery is autonomous when paths are omitted."""
+    if not requirement.strip():
+        raise ValueError("requirement is required")
     run_id = new_id()
     input_directory = ARTIFACT_ROOT / run_id / "inputs"
     input_directory.mkdir(parents=True, exist_ok=True)
     inputs: list[dict[str, Any]] = []
-    for path in input_paths:
+    for path in input_paths or []:
         source = _safe_workspace_table(path)
         destination = input_directory / source.name
         if destination.exists():

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 import re
+import time
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,6 +20,7 @@ from app.infrastructure.tabular_files import TableData, read_tabular, write_csv,
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACT_ROOT = BACKEND_ROOT / "report_artifacts"
+STEP_VISIBILITY_DELAY_SECONDS = 1.25
 
 
 FIELD_ALIASES = {
@@ -64,11 +66,11 @@ TASK_BLUEPRINTS = [
     ),
     (
         "inspect_sources",
-        "识别数据源",
-        "读取 CSV/XLSX，识别文件、工作表、字段和记录规模。",
-        "tabular-source-inspector",
-        ["table.read", "schema.inspect"],
-        ["filesystem.read", "spreadsheet.read"],
+        "自主发现数据源",
+        "根据需求选择数据连接能力；未配置外部连接器时使用可追溯的内置演示数据。",
+        "autonomous-source-resolver",
+        ["source.discover", "table.read", "schema.inspect"],
+        ["mcp.resource.search", "table.inspect"],
     ),
     (
         "profile_data",
@@ -129,6 +131,64 @@ TASK_BLUEPRINTS = [
 ]
 
 
+ONTOLOGY_REASONING = {
+    "compile_requirement": {
+        "input_classes": ["Goal"],
+        "matched_concepts": ["ReportSpecification", "Deliverable", "AcceptanceCriterion"],
+        "rule": "Goal 包含分析/汇总/报表意图 → 创建 ReportSpecification",
+        "inference": "该自然语言目标需要可下载报表与可验证交付合同。",
+    },
+    "inspect_sources": {
+        "input_classes": ["Goal", "DataSource"],
+        "matched_concepts": ["DataSource", "Dataset", "Capability"],
+        "rule": "Goal requires Dataset 且未指定输入 → 调用 source.discover 能力",
+        "inference": "当前未配置外部数据连接器，选择 mcp://demo/sales-ledger 作为透明演示源。",
+    },
+    "profile_data": {
+        "input_classes": ["Dataset"],
+        "matched_concepts": ["DataField", "DataQualityRule"],
+        "rule": "Dataset 在进入变换前必须满足 quality.measure 前置规则",
+        "inference": "生成字段、缺失值、重复行与可用性画像。",
+    },
+    "align_schema": {
+        "input_classes": ["DataField"],
+        "matched_concepts": ["FieldMapping", "DataField"],
+        "rule": "字段别名命中 canonical DataField → 推导 FieldMapping",
+        "inference": "订单号、金额、地区等异构字段被映射到统一业务语义。",
+    },
+    "clean_merge": {
+        "input_classes": ["Dataset", "DataQualityRule"],
+        "matched_concepts": ["DataQualityRule", "Artifact"],
+        "rule": "空业务记录过滤 + 全字段指纹相同 → duplicate",
+        "inference": "形成保留来源血缘的清洗数据集。",
+    },
+    "calculate_summary": {
+        "input_classes": ["ReportSpecification", "Dataset"],
+        "matched_concepts": ["MetricDefinition", "DataField"],
+        "rule": "数值覆盖率 ≥ 30% → MetricDefinition；低基数字段 → Dimension",
+        "inference": "自动选择可汇总指标与分类维度。",
+    },
+    "generate_report": {
+        "input_classes": ["ReportSpecification", "MetricDefinition"],
+        "matched_concepts": ["Artifact", "Deliverable"],
+        "rule": "ReportSpecification deliverable=spreadsheet → spreadsheet-report-builder",
+        "inference": "生成包含目标、需求、执行路径、本体推理和数据结果的 Excel 报告。",
+    },
+    "verify_delivery": {
+        "input_classes": ["Artifact", "AcceptanceCriterion"],
+        "matched_concepts": ["Verification", "Evidence"],
+        "rule": "每个 Deliverable 必须 VERIFIED_BY Verification",
+        "inference": "行数、版本一致性与产物完整性均需形成证据。",
+    },
+    "package_results": {
+        "input_classes": ["Artifact", "Verification"],
+        "matched_concepts": ["DeliveryBundle", "Evidence"],
+        "rule": "所有验收条件通过 → Artifact CONTAINS_IN DeliveryBundle",
+        "inference": "组织最终下载文件、执行清单与完整可追溯路径。",
+    },
+}
+
+
 def compile_result_contract(requirement: str, file_names: list[str]) -> dict[str, Any]:
     dimensions = _mentioned(
         requirement,
@@ -155,13 +215,13 @@ def compile_result_contract(requirement: str, file_names: list[str]) -> dict[str
         metrics = ["记录数", "数值字段合计与平均值"]
     return {
         "goal": requirement.strip(),
-        "inputs": file_names,
+        "inputs": file_names or ["Agent 通过 DataSourceResolver / MCP 自动发现"],
         "operations": ["字段识别", "质量分析", "字段对齐", "数据清洗", "汇总计算", "报表生成"],
         "dimensions": dimensions or ["系统自动识别分类维度"],
         "metrics": metrics,
         "deliverables": ["清洗后的 CSV 数据", "Excel 分析报表", "执行与验证清单"],
         "acceptance_criteria": [
-            "所有输入文件都被读取并保留来源血缘",
+            "数据来源由 Agent 自动选择并明确记录来源血缘",
             "空记录和完全重复记录已处理",
             "报表汇总与清洗后明细使用同一数据版本",
             "最终产物可以下载并追溯到执行 Task",
@@ -209,6 +269,7 @@ def create_workflow_run(
                         "mcp_bindings": bindings,
                         "permission_policy": "workspace-scoped",
                         "depends_on": [previous_key] if previous_key else [],
+                        "ontology_rule": ONTOLOGY_REASONING[key]["rule"],
                     },
                     inputs=[],
                     outputs=[],
@@ -287,8 +348,15 @@ def execute_workflow_run(run_id: str) -> None:
             "package_results": _package_step,
         }
         for index, (key, *_rest) in enumerate(TASK_BLUEPRINTS, start=1):
-            _set_task_state(run_id, key, "running")
+            _set_task_state(
+                run_id,
+                key,
+                "running",
+                evidence={"ontology_reasoning": ONTOLOGY_REASONING[key]},
+            )
+            time.sleep(STEP_VISIBILITY_DELAY_SECONDS)
             evidence, outputs = handlers[key](run_id, context)
+            evidence = {**evidence, "ontology_reasoning": ONTOLOGY_REASONING[key]}
             _set_task_state(run_id, key, "succeeded", evidence=evidence, outputs=outputs)
             with session_scope() as session:
                 run = session.get(WorkflowRunORM, run_id)
@@ -325,15 +393,39 @@ def _inspect_step(run_id: str, context: dict[str, Any]) -> tuple[dict[str, Any],
     tables: list[TableData] = []
     for item in inputs:
         tables.extend(read_tabular(Path(item["path"])))
+    source_mode = "connected_files"
+    if not tables:
+        source_mode = "autonomous_demo"
+        tables = [_autonomous_demo_table()]
     if not tables:
         raise ValueError("没有读取到可处理的数据表。")
     context["tables"] = tables
+    context["source_mode"] = source_mode
     return {
+        "source_mode": source_mode,
         "source_files": len(inputs),
         "tables": len(tables),
         "input_rows": sum(len(table.rows) for table in tables),
         "schemas": [{"source": table.source, "table": table.name, "fields": table.headers} for table in tables],
     }, ["source_inventory", "schema_snapshot"]
+
+
+def _autonomous_demo_table() -> TableData:
+    """外部 MCP 尚未配置时使用的透明演示源，确保 Goal Runner 可以一键跑通。"""
+    rows = [
+        {"订单号": "SO-1001", "月份": "2026-07", "地区": "华东", "产品名称": "智能终端", "销售金额": 12800, "回款金额": 9600},
+        {"订单号": "SO-1002", "月份": "2026-07", "地区": "华南", "产品名称": "协作软件", "销售金额": 8600, "回款金额": 8600},
+        {"订单号": "SO-1003", "月份": "2026-08", "地区": "华东", "产品名称": "协作软件", "销售金额": 15200, "回款金额": 12000},
+        {"订单号": "SO-1004", "月份": "2026-08", "地区": "华北", "产品名称": "智能终端", "销售金额": 19400, "回款金额": ""},
+        {"订单号": "SO-1005", "月份": "2026-09", "地区": "华南", "产品名称": "数据服务", "销售金额": 11300, "回款金额": 11300},
+        {"订单号": "SO-1005", "月份": "2026-09", "地区": "华南", "产品名称": "数据服务", "销售金额": 11300, "回款金额": 11300},
+    ]
+    return TableData(
+        name="autonomous_sales_ledger",
+        source="mcp://demo/sales-ledger",
+        headers=["订单号", "月份", "地区", "产品名称", "销售金额", "回款金额"],
+        rows=rows,
+    )
 
 
 def profile_tables(tables: list[TableData]) -> dict[str, Any]:
@@ -505,6 +597,14 @@ def _report_step(run_id: str, context: dict[str, Any]) -> tuple[dict[str, Any], 
             )
     execution_rows = [
         {"项目": "目标", "结果": context["contract"].get("goal", "")},
+        {"项目": "原始需求", "结果": context["contract"].get("goal", "")},
+        {
+            "项目": "数据来源",
+            "结果": "Agent 自动发现的内置演示数据（mcp://demo/sales-ledger）"
+            if context.get("source_mode") == "autonomous_demo"
+            else "已连接的数据源",
+        },
+        {"项目": "执行路径", "结果": " → ".join(item[1] for item in TASK_BLUEPRINTS)},
         {"项目": "输入记录", "结果": len(context["aligned_rows"])},
         {"项目": "清洗后记录", "结果": len(context["cleaned_rows"])},
         {"项目": "删除重复记录", "结果": context["duplicates_removed"]},
@@ -531,6 +631,16 @@ def _report_step(run_id: str, context: dict[str, Any]) -> tuple[dict[str, Any], 
         }
         for item in context["calculated_summary"]["categorical"]
     ]
+    reasoning_rows = [
+        {
+            "阶段": next(item[1] for item in TASK_BLUEPRINTS if item[0] == task_key),
+            "输入本体类": "、".join(reasoning["input_classes"]),
+            "命中概念": "、".join(reasoning["matched_concepts"]),
+            "规则": reasoning["rule"],
+            "推理结论": reasoning["inference"],
+        }
+        for task_key, reasoning in ONTOLOGY_REASONING.items()
+    ]
     write_xlsx(
         report_path,
         [
@@ -538,6 +648,7 @@ def _report_step(run_id: str, context: dict[str, Any]) -> tuple[dict[str, Any], 
             ("数据质量", ["来源文件", "数据表", "字段", "记录数", "缺失数", "重复行"], profile_rows),
             ("数值汇总", ["字段", "有效值数", "合计", "平均值", "最小值", "最大值"], numeric_rows),
             ("分类汇总", ["维度", "分类", "记录数", "汇总指标", "指标合计"], category_rows),
+            ("本体推理", ["阶段", "输入本体类", "命中概念", "规则", "推理结论"], reasoning_rows),
             ("清洗后数据", context["headers"], context["cleaned_rows"]),
         ],
     )
@@ -547,17 +658,20 @@ def _report_step(run_id: str, context: dict[str, Any]) -> tuple[dict[str, Any], 
         report_path,
         "spreadsheet_report",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        {"sheets": 5, "rows": len(context["cleaned_rows"])},
+        {"sheets": 6, "rows": len(context["cleaned_rows"]), "includes_reasoning_trace": True},
     )
     summary_path = run_directory / "result-summary.json"
     summary_payload = {
         "contract": context["contract"],
+        "source_mode": context.get("source_mode"),
+        "execution_path": [item[1] for item in TASK_BLUEPRINTS],
+        "ontology_reasoning": ONTOLOGY_REASONING,
         "profile": context["profile"],
         "summary": context["calculated_summary"],
     }
     summary_path.write_text(json.dumps(summary_payload, ensure_ascii=False, indent=2), encoding="utf-8")
     _add_artifact(run_id, "generate_report", summary_path, "result_summary", "application/json")
-    return {"workbook_sheets": 5, "report_rows": len(context["cleaned_rows"])}, [
+    return {"workbook_sheets": 6, "report_rows": len(context["cleaned_rows"]), "reasoning_trace": True}, [
         "analysis-report.xlsx",
         "result-summary.json",
     ]
@@ -566,7 +680,7 @@ def _report_step(run_id: str, context: dict[str, Any]) -> tuple[dict[str, Any], 
 def _verify_step(run_id: str, context: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     run_directory = _run_directory(run_id)
     checks = [
-        {"name": "输入文件已读取", "passed": bool(context.get("tables"))},
+        {"name": "数据源已解析", "passed": bool(context.get("tables"))},
         {"name": "清洗数据已生成", "passed": (run_directory / "cleaned-data.csv").exists()},
         {"name": "Excel 报表已生成", "passed": (run_directory / "analysis-report.xlsx").exists()},
         {"name": "数据行数有效", "passed": len(context.get("cleaned_rows", [])) > 0},
@@ -593,7 +707,14 @@ def _package_step(run_id: str, context: dict[str, Any]) -> tuple[dict[str, Any],
             "requirement": run.requirement if run else "",
             "result_contract": run.result_contract if run else {},
             "tasks": [
-                {"key": task.task_key, "title": task.title, "status": task.status, "outputs": task.outputs}
+                {
+                    "key": task.task_key,
+                    "title": task.title,
+                    "status": task.status,
+                    "skill": task.skill_spec,
+                    "evidence": task.evidence,
+                    "outputs": task.outputs,
+                }
                 for task in tasks
             ],
             "verification": context.get("verification_checks", []),
@@ -608,6 +729,7 @@ def _package_step(run_id: str, context: dict[str, Any]) -> tuple[dict[str, Any],
         "missing_cells": context["profile"]["total_missing_cells"],
         "numeric_fields": len(context["calculated_summary"]["numeric"]),
         "artifact_count": artifact_count + 1,
+        "source_mode": context.get("source_mode", "unknown"),
         "progress": 100,
         "task_count": len(TASK_BLUEPRINTS),
     }

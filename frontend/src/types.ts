@@ -45,6 +45,8 @@ export type ExecutionTask = {
     required_capabilities?: string[];
     mcp_bindings?: string[];
     permission_policy?: string;
+    ontology_rule?: string;
+    depends_on?: string[];
   };
   inputs: unknown[];
   outputs: unknown[];
@@ -82,7 +84,7 @@ export type ReportRun = {
     acceptance_criteria?: string[];
   };
   input_files: Array<{ name: string; size: number }>;
-  summary: Record<string, number>;
+  summary: Record<string, number | string>;
   error: string;
   created_at: string;
   started_at?: string | null;

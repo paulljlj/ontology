@@ -4,6 +4,11 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class WorkflowRunCreate(BaseModel):
+    requirement: str = Field(min_length=8, max_length=4000)
+    title: str = Field(default="本体智能体执行", max_length=160)
+
+
 class ExecutionTaskRead(BaseModel):
     id: str
     task_key: str

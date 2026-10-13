@@ -3,14 +3,11 @@ import type { Graph, OntologyClass, OntologyInstance, ReportRun } from "./types"
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const isFormData = init?.body instanceof FormData;
   const response = await fetch(`${API_BASE}${path}`, {
-    headers: isFormData
-      ? init?.headers
-      : {
-          "Content-Type": "application/json",
-          ...(init?.headers ?? {}),
-        },
+    headers: {
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
+    },
     ...init,
   });
   if (!response.ok) {
@@ -73,12 +70,10 @@ export const api = {
     }),
   reportRuns: () => request<ReportRun[]>("/report-runs"),
   reportRun: (runId: string) => request<ReportRun>(`/report-runs/${runId}`),
-  createReportRun: (requirement: string, title: string, files: File[]) => {
-    const body = new FormData();
-    body.append("requirement", requirement);
-    body.append("title", title);
-    files.forEach((file) => body.append("files", file));
-    return request<ReportRun>("/report-runs", { method: "POST", body });
-  },
+  createReportRun: (requirement: string, title = "本体智能体执行") =>
+    request<ReportRun>("/report-runs", {
+      method: "POST",
+      body: JSON.stringify({ requirement, title }),
+    }),
   artifactUrl: (downloadUrl: string) => `${API_BASE}${downloadUrl}`,
 };

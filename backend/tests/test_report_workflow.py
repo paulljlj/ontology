@@ -24,6 +24,12 @@ def test_compiles_requirement_contract():
     assert "Excel 分析报表" in contract["deliverables"]
 
 
+def test_contract_can_run_without_uploaded_files():
+    contract = compile_result_contract("自动发现数据源并生成销售分析报告。", [])
+    assert contract["inputs"] == ["Agent 通过 DataSourceResolver / MCP 自动发现"]
+    assert any("自动选择" in item for item in contract["acceptance_criteria"])
+
+
 def test_profiles_aligns_cleans_and_summarizes_data():
     tables = read_tabular(FIXTURE)
     profile = profile_tables(tables)

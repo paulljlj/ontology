@@ -15,16 +15,17 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     with session_scope() as session:
         seed_database(session)
-    # 启动飞书 WebSocket 事件监听（无凭证 / 未安装 lark_oapi 时自动跳过）
-    from app.infrastructure.feishu_events import start_event_listener
+    # 只有显式启用时才加载飞书 SDK，避免无关能力拖慢本地 Goal Runner 冷启动。
+    if settings.feishu_event_enabled:
+        from app.infrastructure.feishu_events import start_event_listener
 
-    start_event_listener()
+        start_event_listener()
     yield
 
 
 app = FastAPI(
-    title="Ontology AI Coding MVP",
-    description="本体驱动 AI 软件工程平台的教学型 MVP",
+    title="本体智能体工作台",
+    description="本体驱动的需求理解、任务编排、推理执行与结果交付平台",
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -44,7 +45,7 @@ app.include_router(report_router, prefix="/api")
 @app.get("/")
 def root():
     return {
-        "name": "Ontology AI Coding MVP",
+        "name": "本体智能体工作台",
         "docs": "/docs",
         "health": "/api/health",
     }

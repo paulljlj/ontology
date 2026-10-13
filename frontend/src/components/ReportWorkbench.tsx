@@ -1,47 +1,61 @@
 import {
   Activity,
-  ArrowLeft,
-  Boxes,
+  BrainCircuit,
   Check,
+  CheckCircle2,
   Circle,
+  Database,
   Download,
   FileOutput,
-  FileSpreadsheet,
+  GitBranch,
+  History,
   Loader2,
+  Network,
   Play,
   RefreshCw,
-  Sparkles,
-  UploadCloud,
+  Workflow,
+  X,
   XCircle,
-  Zap,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
-import type { ExecutionTask, ReportRun } from "../types";
+import type {
+  ExecutionTask,
+  Graph,
+  OntologyInstance,
+  OntologyRelation,
+  ReportRun,
+} from "../types";
+import Topology from "./Topology";
 
 const SAMPLE_REQUIREMENT =
-  "整理上传的数据，识别并统一字段，处理空记录和重复记录；自动发现可汇总的数值指标及分类维度，生成清洗后数据、Excel 分析报表和可追溯的验证结果。";
+  "分析最近三个月各区域、各产品的销售额和回款情况，自动清洗重复与缺失数据，生成经营分析报告，并说明完整执行路径和验证结果。";
 
-export function ReportWorkbench({ onBack }: { onBack: () => void }) {
-  const [title, setTitle] = useState("数据整理与经营报表");
+type OntologyReasoning = {
+  input_classes?: string[];
+  matched_concepts?: string[];
+  rule?: string;
+  inference?: string;
+};
+
+export function ReportWorkbench() {
   const [requirement, setRequirement] = useState(SAMPLE_REQUIREMENT);
-  const [files, setFiles] = useState<File[]>([]);
-  const [fileInputVersion, setFileInputVersion] = useState(0);
   const [runs, setRuns] = useState<ReportRun[]>([]);
   const [activeRun, setActiveRun] = useState<ReportRun | null>(null);
+  const [selectedOntology, setSelectedOntology] = useState<OntologyInstance | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [resultOpen, setResultOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function loadRuns(preferredId?: string) {
+  const loadRuns = useCallback(async (preferredId?: string) => {
     const rows = await api.reportRuns();
     setRuns(rows);
-    const selected = rows.find((run) => run.id === preferredId) ?? activeRun ?? rows[0] ?? null;
-    if (selected) setActiveRun(selected);
-  }
+    setActiveRun((current) => rows.find((run) => run.id === preferredId) ?? current ?? rows[0] ?? null);
+  }, []);
 
   useEffect(() => {
     loadRuns().catch((reason) => setError(reason instanceof Error ? reason.message : "加载执行记录失败。"));
-  }, []);
+  }, [loadRuns]);
 
   useEffect(() => {
     if (!activeRun || !["planning", "running"].includes(activeRun.status)) return;
@@ -53,27 +67,24 @@ export function ReportWorkbench({ onBack }: { onBack: () => void }) {
       } catch (reason) {
         setError(reason instanceof Error ? reason.message : "刷新执行状态失败。");
       }
-    }, 900);
+    }, 450);
     return () => window.clearInterval(timer);
   }, [activeRun?.id, activeRun?.status]);
 
   async function submit() {
-    if (requirement.trim().length < 8) {
-      setError("请描述数据整理目标、指标或期望交付物。");
-      return;
-    }
-    if (files.length === 0) {
-      setError("请至少选择一个 CSV 或 XLSX 文件。");
+    const goal = requirement.trim();
+    if (goal.length < 8) {
+      setError("请用一句完整的话描述目标、期望结果或验收要求。");
       return;
     }
     setSubmitting(true);
+    setResultOpen(false);
+    setSelectedOntology(null);
     setError(null);
     try {
-      const created = await api.createReportRun(requirement.trim(), title.trim(), files);
+      const created = await api.createReportRun(goal, "本体智能体执行");
       setActiveRun(created);
       setRuns((current) => [created, ...current.filter((run) => run.id !== created.id)]);
-      setFiles([]);
-      setFileInputVersion((current) => current + 1);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "启动执行失败。");
     } finally {
@@ -83,265 +94,279 @@ export function ReportWorkbench({ onBack }: { onBack: () => void }) {
 
   const progress = useMemo(() => {
     if (!activeRun) return 0;
+    const reported = Number(activeRun.summary.progress);
+    if (Number.isFinite(reported)) return reported;
     const completed = activeRun.tasks.filter((task) => task.status === "succeeded").length;
     return activeRun.tasks.length ? Math.round((completed / activeRun.tasks.length) * 100) : 0;
   }, [activeRun]);
 
+  const visibleTasks = useMemo(() => revealTasks(activeRun?.tasks ?? []), [activeRun]);
+  const runtimeGraph = useMemo(() => buildRuntimeGraph(activeRun, visibleTasks), [activeRun, visibleTasks]);
+
+  useEffect(() => {
+    if (!activeRun) return;
+    const running = visibleTasks.find((task) => task.status === "running") ?? visibleTasks[visibleTasks.length - 1];
+    const nodeId = running ? `${activeRun.id}-task-${running.task_key}` : `${activeRun.id}-goal`;
+    setSelectedOntology(runtimeGraph.nodes.find((node) => node.id === nodeId) ?? runtimeGraph.nodes[0] ?? null);
+  }, [activeRun?.updated_at, runtimeGraph, visibleTasks]);
+
+  const activeTask =
+    visibleTasks.find((task) => task.status === "running") ??
+    [...visibleTasks].reverse().find((task) => task.status === "succeeded") ??
+    visibleTasks[0];
+  const activeReasoning = reasoningOf(activeTask);
+
+  const selectGraphNode = useCallback((instance: OntologyInstance) => {
+    setSelectedOntology(instance);
+  }, []);
+
   return (
-    <main className="reportShell">
-      <aside className="reportSidebar">
-        <div className="brand">
-          <Boxes size={26} />
+    <main className="goalShell">
+      <header className="goalHeader">
+        <div className="goalBrand">
+          <div className="brandMark"><Network size={23} /></div>
           <div>
-            <strong>Ontology AI</strong>
-            <span>Goal-to-Artifact Runtime</span>
+            <strong>本体智能体工作台</strong>
+            <span>ONTOLOGY AGENT WORKBENCH</span>
           </div>
         </div>
-        <button className="backButton" onClick={onBack}>
-          <ArrowLeft size={16} />
-          返回本体工作台
-        </button>
-        <div className="runListHeader">
-          <span>最近执行</span>
-          <button onClick={() => loadRuns(activeRun?.id)} title="刷新记录">
-            <RefreshCw size={14} />
+        <div className="headerActions">
+          <label className="runHistory">
+            <History size={15} />
+            <span>执行记录</span>
+            <select
+              value={activeRun?.id ?? ""}
+              onChange={(event) => {
+                const selected = runs.find((run) => run.id === event.target.value) ?? null;
+                setActiveRun(selected);
+                setSelectedOntology(null);
+                setResultOpen(false);
+              }}
+            >
+              <option value="">暂无记录</option>
+              {runs.map((run) => <option key={run.id} value={run.id}>{run.title} · {statusText(run.status)}</option>)}
+            </select>
+          </label>
+          <button className="quietButton" onClick={() => loadRuns(activeRun?.id)} title="刷新执行记录">
+            <RefreshCw size={16} />
           </button>
         </div>
-        <div className="runList">
-          {runs.length === 0 ? (
-            <p className="empty">还没有执行记录。</p>
-          ) : (
-            runs.map((run) => (
-              <button
-                key={run.id}
-                className={activeRun?.id === run.id ? "runItem active" : "runItem"}
-                onClick={() => setActiveRun(run)}
-              >
-                <span>{run.title}</span>
-                <small>{statusText(run.status)}</small>
-              </button>
-            ))
-          )}
+      </header>
+
+      <section className="goalIntro">
+        <div>
+          <span className="eyebrow"><GitBranch size={14} /> ONTOLOGY WORKFLOW</span>
+          <h1>本体驱动的任务执行工作台</h1>
+          <p>从自然语言需求到任务拆解、规则推理、能力编排与结果交付，完整过程可观察、可追溯。</p>
         </div>
-      </aside>
+        <div className="capabilityRail" aria-label="本体执行阶段">
+          <div><small>01</small><span>需求建模</span></div>
+          <div><small>02</small><span>本体推理</span></div>
+          <div><small>03</small><span>能力编排</span></div>
+          <div><small>04</small><span>结果验证</span></div>
+        </div>
+      </section>
 
-      <section className="reportWorkspace">
-        <header className="reportHeader">
-          <div>
-            <p>通用需求执行 · 首个数据能力闭环</p>
-            <h1>整理数据并生成可验证报表</h1>
-          </div>
-          <div className="runtimePill">
-            <Zap size={15} />
-            Task · Skill · MCP · Artifact
-          </div>
-        </header>
+      <section className="goalComposer">
+        <div className="composerIcon"><BrainCircuit size={23} /></div>
+        <label>
+          <span>输入执行需求</span>
+          <textarea
+            rows={3}
+            value={requirement}
+            onChange={(event) => setRequirement(event.target.value)}
+            placeholder="描述目标、约束和期望产物，不需要预先拆解任务。"
+          />
+        </label>
+        <button className="executeButton" onClick={submit} disabled={submitting || activeRun?.status === "running"}>
+          {submitting ? <Loader2 className="spin" size={18} /> : <Play size={18} />}
+          运行需求
+        </button>
+      </section>
 
-        <section className="requestComposer">
-          <div className="requestHeading">
-            <Sparkles size={18} />
-            <div>
-              <strong>输入目标</strong>
-              <span>系统会生成结果合同、Task DAG 和临时 Skill，再执行并验证产物。</span>
-            </div>
+      {error && (
+        <div className="goalError">
+          <XCircle size={17} /><span>{error}</span><button onClick={() => setError(null)}><X size={15} /></button>
+        </div>
+      )}
+
+      <section className="runtimeSummary">
+        <div>
+          <span className={`liveDot ${activeRun?.status ?? "idle"}`} />
+          <strong>{activeRun ? statusText(activeRun.status) : "等待需求"}</strong>
+          <span>{activeRun ? activeRun.requirement : "输入目标后，执行流程和本体图谱会在同一页面同步生长。"}</span>
+        </div>
+        <b>{progress}%</b>
+        <div className="globalProgress"><span style={{ width: `${progress}%` }} /></div>
+      </section>
+
+      <section className="runtimeGrid">
+        <section className="processPanel">
+          <div className="panelHeading">
+            <div><Workflow size={18} /><h2>执行流程</h2></div>
+            <span>{visibleTasks.length}/{activeRun?.tasks.length ?? 0} 步骤</span>
           </div>
-          <label className="field">
-            <span>执行名称</span>
-            <input value={title} onChange={(event) => setTitle(event.target.value)} />
-          </label>
-          <label className="field">
-            <span>数据整理与报表需求</span>
-            <textarea rows={4} value={requirement} onChange={(event) => setRequirement(event.target.value)} />
-          </label>
-          <div className="uploadRow">
-            <label className="uploadBox">
-              <UploadCloud size={22} />
-              <span>{files.length ? `已选择 ${files.length} 个文件` : "选择 CSV / XLSX 文件"}</span>
-              <small>单文件最大 25 MB，可一次上传多个来源</small>
-              <input
-                key={fileInputVersion}
-                type="file"
-                accept=".csv,.xlsx"
-                multiple
-                onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
+          <div className="flowCanvas">
+            <article className={`goalNode ${activeRun ? "ready" : "waiting"}`}>
+              <div className="flowIndex"><Network size={15} /></div>
+              <div>
+                <small>需求目标</small>
+                <strong>{activeRun ? activeRun.requirement : "等待输入一个目标"}</strong>
+                <p>自然语言需求将先被本体编译成可执行、可验收的结果合同。</p>
+              </div>
+            </article>
+
+            {visibleTasks.map((task) => (
+              <FlowTask
+                key={task.id}
+                task={task}
+                selected={selectedOntology?.id === `${activeRun?.id}-task-${task.task_key}`}
+                onSelect={() => {
+                  const node = runtimeGraph.nodes.find((item) => item.id === `${activeRun?.id}-task-${task.task_key}`);
+                  if (node) setSelectedOntology(node);
+                }}
               />
-            </label>
-            <div className="fileSelection">
-              {files.map((file) => (
-                <span key={`${file.name}-${file.size}`}>
-                  <FileSpreadsheet size={14} />
-                  {file.name}
-                  <small>{formatBytes(file.size)}</small>
-                </span>
-              ))}
-            </div>
-            <button className="runButton" onClick={submit} disabled={submitting || files.length === 0}>
-              {submitting ? <Loader2 className="spin" size={17} /> : <Play size={17} />}
-              启动执行
-            </button>
+            ))}
+
+            {activeRun?.status === "succeeded" && (
+              <article className="resultNode">
+                <div className="resultNodeIcon"><CheckCircle2 size={20} /></div>
+                <div>
+                  <small>结果交付</small>
+                  <strong>结果已生成并通过验证</strong>
+                  <p>{activeRun.artifacts.length} 个产物 · {activeRun.tasks.length} 个步骤 · 全路径可追溯</p>
+                </div>
+                <button onClick={() => setResultOpen(true)}><FileOutput size={16} /> 查看结果</button>
+              </article>
+            )}
           </div>
         </section>
 
-        {error && (
-          <div className="errorBanner reportError">
-            <strong>执行提示：</strong>
-            <span>{error}</span>
-            <button onClick={() => setError(null)}>关闭</button>
+        <section className="ontologyPanel">
+          <div className="panelHeading">
+            <div><GitBranch size={18} /><h2>实时本体知识图谱</h2></div>
+            <div className="graphLegend"><span><i className="solid" />事实</span><span><i className="inferred" />推理</span></div>
           </div>
-        )}
-
-        {!activeRun ? (
-          <section className="reportEmpty">
-            <Activity size={28} />
-            <h2>等待第一个数据需求</h2>
-            <p>上传数据并启动后，这里会展示需求合同、每个 Task 的执行证据和最终产物。</p>
-          </section>
-        ) : (
-          <>
-            <section className="runOverview">
-              <div>
-                <div className="runTitleLine">
-                  <StatusIcon status={activeRun.status} />
-                  <h2>{activeRun.title}</h2>
-                  <span className={`statusBadge ${activeRun.status}`}>{statusText(activeRun.status)}</span>
+          {activeRun ? (
+            <>
+              <div className="runtimeTopology">
+                <Topology graph={runtimeGraph} selected={selectedOntology} onSelect={selectGraphNode} />
+              </div>
+              <div className="reasoningConsole">
+                <div className="reasoningTitle">
+                  <BrainCircuit size={17} />
+                  <div><strong>推理机判断</strong><span>{activeTask?.title ?? "等待推理"}</span></div>
+                  {activeTask && <b>{statusText(activeTask.status)}</b>}
                 </div>
-                <p>{activeRun.requirement}</p>
+                <div className="reasoningPath">
+                  {(activeReasoning.input_classes ?? []).map((name) => <span key={name}>{name}</span>)}
+                  <i>→</i>
+                  {(activeReasoning.matched_concepts ?? []).map((name) => <span className="matched" key={name}>{name}</span>)}
+                </div>
+                <dl>
+                  <div><dt>触发规则</dt><dd>{activeReasoning.rule ?? activeTask?.skill_spec.ontology_rule ?? "等待规则匹配"}</dd></div>
+                  <div><dt>推理结论</dt><dd>{activeReasoning.inference ?? "执行到该节点后显示推理结论。"}</dd></div>
+                  <div><dt>当前节点</dt><dd>{selectedOntology ? `${selectedOntology.class_name} · ${selectedOntology.title}` : "未选择"}</dd></div>
+                </dl>
               </div>
-              <strong>{progress}%</strong>
-              <div className="progressTrack" aria-label={`执行进度 ${progress}%`}>
-                <span style={{ width: `${progress}%` }} />
-              </div>
-              {activeRun.error && <p className="runError">{activeRun.error}</p>}
-            </section>
-
-            <section className="reportMetrics">
-              <ReportMetric label="输入记录" value={activeRun.summary.input_rows} />
-              <ReportMetric label="清洗后记录" value={activeRun.summary.output_rows} />
-              <ReportMetric label="移除重复" value={activeRun.summary.duplicates_removed} />
-              <ReportMetric label="最终产物" value={activeRun.summary.artifact_count ?? activeRun.artifacts.length} />
-            </section>
-
-            <section className="executionGrid">
-              <div className="executionColumn">
-                <section className="reportPanel">
-                  <div className="sectionTitle">
-                    <Sparkles size={18} />
-                    <h2>结果合同</h2>
-                  </div>
-                  <Contract run={activeRun} />
-                </section>
-
-                <section className="reportPanel">
-                  <div className="sectionTitle">
-                    <Activity size={18} />
-                    <h2>执行过程</h2>
-                  </div>
-                  <div className="taskTimeline">
-                    {activeRun.tasks.map((task) => (
-                      <TaskRow task={task} key={task.id} />
-                    ))}
-                  </div>
-                </section>
-              </div>
-
-              <aside className="resultColumn">
-                <section className="reportPanel resultPanel">
-                  <div className="sectionTitle">
-                    <FileOutput size={18} />
-                    <h2>最终结果</h2>
-                  </div>
-                  {activeRun.status !== "succeeded" ? (
-                    <p className="empty">执行完成并通过验证后，产物会显示在这里。</p>
-                  ) : (
-                    <>
-                      <div className="verificationSummary">
-                        <Check size={18} />
-                        <div>
-                          <strong>交付验证通过</strong>
-                          <span>{activeRun.tasks.length} 个 Task 已完成</span>
-                        </div>
-                      </div>
-                      <div className="artifactList">
-                        {activeRun.artifacts.map((artifact) => (
-                          <a
-                            key={artifact.id}
-                            href={api.artifactUrl(artifact.download_url)}
-                            className="artifactItem"
-                          >
-                            <FileSpreadsheet size={19} />
-                            <span>
-                              <strong>{artifact.name}</strong>
-                              <small>{artifact.kind} · {formatBytes(artifact.size)}</small>
-                            </span>
-                            <Download size={16} />
-                          </a>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </section>
-              </aside>
-            </section>
-          </>
-        )}
+            </>
+          ) : (
+            <div className="graphWaiting">
+              <Network size={42} />
+              <strong>知识图谱等待生长</strong>
+              <p>执行后，目标、结果规格、任务、能力、产物与验证节点会随推理过程逐步出现。</p>
+            </div>
+          )}
+        </section>
       </section>
+
+      {resultOpen && activeRun && (
+        <ResultDialog run={activeRun} onClose={() => setResultOpen(false)} />
+      )}
     </main>
   );
 }
 
-function Contract({ run }: { run: ReportRun }) {
-  const contract = run.result_contract;
+function FlowTask({
+  task,
+  selected,
+  onSelect,
+}: {
+  task: ExecutionTask;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const reasoning = reasoningOf(task);
   return (
-    <div className="contractGrid">
-      <ContractGroup label="输入" values={contract.inputs} />
-      <ContractGroup label="处理步骤" values={contract.operations} />
-      <ContractGroup label="维度" values={contract.dimensions} />
-      <ContractGroup label="指标" values={contract.metrics} />
-      <ContractGroup label="交付物" values={contract.deliverables} />
-      <ContractGroup label="验收条件" values={contract.acceptance_criteria} />
-    </div>
-  );
-}
-
-function ContractGroup({ label, values = [] }: { label: string; values?: string[] }) {
-  return (
-    <div className="contractGroup">
-      <strong>{label}</strong>
-      <div>{values.map((value) => <span key={value}>{value}</span>)}</div>
-    </div>
-  );
-}
-
-function TaskRow({ task }: { task: ExecutionTask }) {
-  return (
-    <article className={`taskRow ${task.status}`}>
-      <div className="taskMarker"><TaskStatusIcon status={task.status} /></div>
-      <div className="taskBody">
-        <div className="taskTitle">
-          <strong>{task.order_index}. {task.title}</strong>
+    <article className={`flowTask ${task.status} ${selected ? "selected" : ""}`} onClick={onSelect}>
+      <div className="flowConnector" />
+      <div className="flowIndex"><TaskStatusIcon status={task.status} /></div>
+      <div className="flowTaskBody">
+        <div className="flowTaskTitle">
+          <div><small>STEP {String(task.order_index).padStart(2, "0")}</small><strong>{task.title}</strong></div>
           <span>{statusText(task.status)}</span>
         </div>
         <p>{task.description}</p>
-        <div className="skillLine">
-          <b>Skill</b>
-          <code>{task.skill_spec.name}</code>
+        <div className="executionBinding">
+          <b>Skill</b><code>{task.skill_spec.name}</code>
           {(task.skill_spec.mcp_bindings ?? []).map((binding) => <span key={binding}>{binding}</span>)}
         </div>
-        {task.outputs.length > 0 && <p className="taskOutputs">产物：{task.outputs.join("、")}</p>}
-        {task.error && <p className="taskFailure">{task.error}</p>}
+        {(task.status === "running" || task.status === "succeeded") && (
+          <div className="ontologyDecision">
+            <BrainCircuit size={14} />
+            <span><b>本体规则</b>{reasoning.rule ?? task.skill_spec.ontology_rule}</span>
+          </div>
+        )}
+        {task.status === "running" && <div className="stepProgress"><span /></div>}
+        {task.outputs.length > 0 && <div className="flowOutputs">输出：{task.outputs.join(" · ")}</div>}
+        {task.error && <div className="flowFailure">{task.error}</div>}
       </div>
     </article>
   );
 }
 
-function ReportMetric({ label, value }: { label: string; value?: number }) {
-  return <div><span>{label}</span><strong>{value ?? "—"}</strong></div>;
+function ResultDialog({ run, onClose }: { run: ReportRun; onClose: () => void }) {
+  return (
+    <div className="resultOverlay" role="dialog" aria-modal="true" aria-label="执行结果">
+      <div className="resultDialog">
+        <header>
+          <div><span className="eyebrow"><CheckCircle2 size={14} /> 交付验证通过</span><h2>执行结果与报告</h2></div>
+          <button onClick={onClose} title="关闭"><X size={18} /></button>
+        </header>
+        <div className="resultNarrative">
+          <section><small>任务目标</small><p>{run.result_contract.goal ?? run.requirement}</p></section>
+          <section><small>原始需求</small><p>{run.requirement}</p></section>
+        </div>
+        <section className="resultPath">
+          <div className="sectionLabel"><Activity size={16} /> 系统执行路径</div>
+          <div>{run.tasks.map((task) => <span key={task.id}><Check size={13} />{task.title}</span>)}</div>
+        </section>
+        <div className="resultStats">
+          <ResultStat label="输入记录" value={run.summary.input_rows} />
+          <ResultStat label="清洗后记录" value={run.summary.output_rows} />
+          <ResultStat label="移除重复" value={run.summary.duplicates_removed} />
+          <ResultStat label="本体推理" value={`${run.tasks.length} 次`} />
+        </div>
+        <section className="resultFiles">
+          <div className="sectionLabel"><FileOutput size={16} /> 可下载产物</div>
+          <div className="resultFileGrid">
+            {run.artifacts.map((artifact) => (
+              <a key={artifact.id} href={api.artifactUrl(artifact.download_url)}>
+                <div className="fileIcon">{artifact.mime_type.includes("sheet") ? <Database size={20} /> : <FileOutput size={20} />}</div>
+                <span><strong>{artifact.name}</strong><small>{artifact.kind} · {formatBytes(artifact.size)}</small></span>
+                <Download size={17} />
+              </a>
+            ))}
+          </div>
+        </section>
+        <p className="resultFootnote">Excel 报告内含任务目标、原始需求、系统执行路径、本体规则与推理结论。</p>
+      </div>
+    </div>
+  );
 }
 
-function StatusIcon({ status }: { status: ReportRun["status"] }) {
-  if (status === "succeeded") return <Check size={20} />;
-  if (status === "failed") return <XCircle size={20} />;
-  return <Loader2 className="spin" size={20} />;
+function ResultStat({ label, value }: { label: string; value: unknown }) {
+  return <div><span>{label}</span><strong>{value == null ? "—" : String(value)}</strong></div>;
 }
 
 function TaskStatusIcon({ status }: { status: ExecutionTask["status"] }) {
@@ -351,8 +376,104 @@ function TaskStatusIcon({ status }: { status: ExecutionTask["status"] }) {
   return <Circle size={13} />;
 }
 
+function reasoningOf(task?: ExecutionTask): OntologyReasoning {
+  if (!task) return {};
+  const value = task.evidence?.ontology_reasoning;
+  return value && typeof value === "object" ? value as OntologyReasoning : {};
+}
+
+function revealTasks(tasks: ExecutionTask[]) {
+  if (!tasks.length) return [];
+  const progressed = tasks.filter((task) => task.status !== "pending");
+  if (!progressed.length) return tasks.slice(0, 1);
+  const lastOrder = Math.max(...progressed.map((task) => task.order_index));
+  const allDone = progressed.length === tasks.length;
+  return tasks.filter((task) => task.order_index <= lastOrder + (allDone ? 0 : 1));
+}
+
+function buildRuntimeGraph(run: ReportRun | null, tasks: ExecutionTask[]): Graph {
+  if (!run) return { nodes: [], edges: [] };
+  const nodes: OntologyInstance[] = [];
+  const edges: OntologyRelation[] = [];
+  const node = (id: string, className: string, title: string, status: string, properties: Record<string, unknown>) => {
+    nodes.push({
+      id,
+      class_id: className,
+      class_name: className,
+      title,
+      status,
+      properties,
+      created_at: run.created_at,
+      updated_at: run.updated_at,
+    });
+  };
+  const edge = (source: string, target: string, type: string, inferred = false, reason = "") => {
+    edges.push({
+      id: `${source}-${type}-${target}`,
+      source_id: source,
+      target_id: target,
+      type,
+      properties: { inferred, reason },
+      inferred,
+      reason,
+      created_at: run.created_at,
+    });
+  };
+
+  const goalId = `${run.id}-goal`;
+  const specId = `${run.id}-spec`;
+  node(goalId, "Goal", compact(run.requirement, 38), run.status, { requirement: run.requirement });
+  node(specId, "ReportSpecification", "动态结果合同", taskState(tasks[0]), run.result_contract);
+  edge(goalId, specId, "INFERRED_AS", true, "目标包含分析与交付意图，推导 ReportSpecification");
+
+  let previousId = specId;
+  tasks.forEach((task) => {
+    const taskId = `${run.id}-task-${task.task_key}`;
+    const skillId = `${run.id}-skill-${task.task_key}`;
+    const reasoning = reasoningOf(task);
+    node(taskId, "ExecutableTask", task.title, task.status, {
+      description: task.description,
+      rule: reasoning.rule ?? task.skill_spec.ontology_rule,
+      inference: reasoning.inference,
+    });
+    node(skillId, "SkillDefinition", task.skill_spec.name ?? "generated-skill", task.status, {
+      capabilities: task.skill_spec.required_capabilities,
+      mcp_bindings: task.skill_spec.mcp_bindings,
+    });
+    edge(previousId, taskId, previousId === specId ? "DECOMPOSES_TO" : "PRECEDES", true, reasoning.rule ?? "任务依赖规则");
+    edge(taskId, skillId, "IMPLEMENTED_BY", false, "Skill 提供 Task 所需能力");
+    previousId = taskId;
+  });
+
+  run.artifacts.forEach((artifact) => {
+    const artifactId = `${run.id}-artifact-${artifact.id}`;
+    node(artifactId, "Artifact", artifact.name, "ready", { kind: artifact.kind, size: artifact.size });
+    const producer = tasks.find((task) => task.id === artifact.task_id);
+    edge(producer ? `${run.id}-task-${producer.task_key}` : previousId, artifactId, "PRODUCES_ARTIFACT");
+  });
+
+  if (run.status === "succeeded") {
+    const verificationId = `${run.id}-verification`;
+    const bundleId = `${run.id}-bundle`;
+    node(verificationId, "Verification", "验收证据通过", "succeeded", { criteria: run.result_contract.acceptance_criteria });
+    node(bundleId, "DeliveryBundle", "最终交付包", "succeeded", { artifact_count: run.artifacts.length });
+    edge(previousId, verificationId, "VERIFIED_BY", true, "全部 AcceptanceCriterion 已满足");
+    edge(verificationId, bundleId, "SATISFIES", true, "验证通过后组织交付包");
+  }
+  return { nodes, edges };
+}
+
+function taskState(task?: ExecutionTask) {
+  if (!task) return "pending";
+  return task.status === "succeeded" ? "ready" : task.status;
+}
+
+function compact(value: string, max: number) {
+  return value.length > max ? `${value.slice(0, max)}…` : value;
+}
+
 function statusText(status: string) {
-  return ({ planning: "规划中", pending: "等待", running: "执行中", succeeded: "已完成", failed: "失败" } as Record<string, string>)[status] ?? status;
+  return ({ planning: "规划中", pending: "等待", running: "执行中", succeeded: "已完成", failed: "失败", idle: "等待" } as Record<string, string>)[status] ?? status;
 }
 
 function formatBytes(size: number) {
