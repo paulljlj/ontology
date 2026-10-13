@@ -1,5 +1,6 @@
 import {
   Activity,
+  BarChart3,
   BrainCircuit,
   Check,
   CheckCircle2,
@@ -7,9 +8,11 @@ import {
   Database,
   Download,
   FileOutput,
+  FileText,
   GitBranch,
   History,
   Loader2,
+  Lightbulb,
   Network,
   Play,
   RefreshCw,
@@ -36,6 +39,21 @@ type OntologyReasoning = {
   matched_concepts?: string[];
   rule?: string;
   inference?: string;
+};
+
+type ResultKpi = {
+  label: string;
+  value: number;
+  display: string;
+  format?: string;
+  tone?: string;
+};
+
+type ResultChart = {
+  title: string;
+  dimension?: string;
+  series: Array<{ key: string; label: string; format?: string }>;
+  items: Array<{ label: string; records?: number; values: Record<string, number> }>;
 };
 
 export function ReportWorkbench() {
@@ -326,47 +344,162 @@ function FlowTask({
 }
 
 function ResultDialog({ run, onClose }: { run: ReportRun; onClose: () => void }) {
+  const answer = typeof run.summary.answer === "string"
+    ? run.summary.answer
+    : `任务已完成，共生成 ${run.artifacts.length} 项交付结果。`;
+  const highlights = stringList(run.summary.highlights);
+  const recommendations = stringList(run.summary.recommendations);
+  const kpis = resultKpis(run.summary.kpis);
+  const charts = resultCharts(run.summary.charts);
   return (
     <div className="resultOverlay" role="dialog" aria-modal="true" aria-label="执行结果">
       <div className="resultDialog">
         <header>
-          <div><span className="eyebrow"><CheckCircle2 size={14} /> 交付验证通过</span><h2>执行结果与报告</h2></div>
+          <div><span className="eyebrow"><CheckCircle2 size={14} /> 交付验证通过</span><h2>结果回答与报告</h2></div>
           <button onClick={onClose} title="关闭"><X size={18} /></button>
         </header>
+
+        <section className="resultAnswer">
+          <div className="sectionLabel"><Lightbulb size={17} /> 问题回答</div>
+          <p>{answer}</p>
+          {highlights.length > 0 && <ul>{highlights.map((item) => <li key={item}>{item}</li>)}</ul>}
+        </section>
+
+        <div className="resultStats">
+          {kpis.length > 0 ? kpis.map((item) => (
+            <ResultStat key={item.label} label={item.label} value={item.display} tone={item.tone} />
+          )) : (
+            <>
+              <ResultStat label="输入记录" value={run.summary.input_rows} />
+              <ResultStat label="清洗后记录" value={run.summary.output_rows} />
+              <ResultStat label="移除重复" value={run.summary.duplicates_removed} />
+              <ResultStat label="本体推理" value={`${run.tasks.length} 次`} />
+            </>
+          )}
+        </div>
+
+        {charts.length > 0 && (
+          <section className="resultVisuals">
+            <div className="sectionLabel"><BarChart3 size={16} /> 数据对比</div>
+            <div className="resultChartGrid">{charts.map((chart) => <ResultChartView key={chart.title} chart={chart} />)}</div>
+          </section>
+        )}
+
+        {recommendations.length > 0 && (
+          <section className="resultRecommendations">
+            <div className="sectionLabel"><Lightbulb size={16} /> 建议</div>
+            <ol>{recommendations.map((item) => <li key={item}>{item}</li>)}</ol>
+          </section>
+        )}
+
         <div className="resultNarrative">
           <section><small>任务目标</small><p>{run.result_contract.goal ?? run.requirement}</p></section>
-          <section><small>原始需求</small><p>{run.requirement}</p></section>
+          <section><small>数据来源</small><p>{run.summary.source_mode === "autonomous_demo" ? "内置演示数据源。用于验证流程，正式分析需连接真实数据源。" : "已连接的数据源。"}</p></section>
         </div>
         <section className="resultPath">
           <div className="sectionLabel"><Activity size={16} /> 系统执行路径</div>
           <div>{run.tasks.map((task) => <span key={task.id}><Check size={13} />{task.title}</span>)}</div>
         </section>
-        <div className="resultStats">
-          <ResultStat label="输入记录" value={run.summary.input_rows} />
-          <ResultStat label="清洗后记录" value={run.summary.output_rows} />
-          <ResultStat label="移除重复" value={run.summary.duplicates_removed} />
-          <ResultStat label="本体推理" value={`${run.tasks.length} 次`} />
-        </div>
         <section className="resultFiles">
-          <div className="sectionLabel"><FileOutput size={16} /> 可下载产物</div>
+          <div className="sectionLabel"><FileOutput size={16} /> 面向用户的报告</div>
           <div className="resultFileGrid">
             {run.artifacts.map((artifact) => (
               <a key={artifact.id} href={api.artifactUrl(artifact.download_url)}>
-                <div className="fileIcon">{artifact.mime_type.includes("sheet") ? <Database size={20} /> : <FileOutput size={20} />}</div>
-                <span><strong>{artifact.name}</strong><small>{artifact.kind} · {formatBytes(artifact.size)}</small></span>
+                <div className="fileIcon">{artifact.mime_type.includes("sheet") ? <Database size={20} /> : artifact.mime_type.includes("markdown") ? <FileText size={20} /> : <BarChart3 size={20} />}</div>
+                <span>
+                  <strong>{metadataText(artifact.metadata, "display_name") || artifact.name}</strong>
+                  <small>{metadataText(artifact.metadata, "description") || `${artifact.kind} · ${formatBytes(artifact.size)}`}</small>
+                </span>
                 <Download size={17} />
               </a>
             ))}
           </div>
         </section>
-        <p className="resultFootnote">Excel 报告内含任务目标、原始需求、系统执行路径、本体规则与推理结论。</p>
+        <p className="resultFootnote">页面先给出结论和可视化；下载文件用于阅读、汇报和执行审计，不再把原始 CSV/JSON 作为用户交付。</p>
       </div>
     </div>
   );
 }
 
-function ResultStat({ label, value }: { label: string; value: unknown }) {
-  return <div><span>{label}</span><strong>{value == null ? "—" : String(value)}</strong></div>;
+function ResultStat({ label, value, tone = "neutral" }: { label: string; value: unknown; tone?: string }) {
+  return <div className={`tone-${tone}`}><span>{label}</span><strong>{value == null ? "—" : String(value)}</strong></div>;
+}
+
+function ResultChartView({ chart }: { chart: ResultChart }) {
+  const maximum = Math.max(1, ...chart.items.flatMap((item) => chart.series.map((series) => Number(item.values[series.key]) || 0)));
+  return (
+    <article className="resultChart">
+      <div className="resultChartTitle">
+        <strong>{chart.title}</strong>
+        <span>{chart.series.map((series) => series.label).join(" / ")}</span>
+      </div>
+      <div className="resultChartRows">
+        {chart.items.map((item) => (
+          <div className="resultChartRow" key={item.label}>
+            <span title={item.label}>{item.label}</span>
+            <div>
+              {chart.series.map((series, index) => {
+                const value = Number(item.values[series.key]) || 0;
+                return <i key={series.key} className={index ? "secondary" : ""} style={{ width: `${Math.max(1.5, value / maximum * 100)}%` }} />;
+              })}
+            </div>
+            <em>{chart.series.map((series) => formatResultValue(item.values[series.key], series.format)).join(" / ")}</em>
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function resultKpis(value: unknown): ResultKpi[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!isRecord(item) || typeof item.label !== "string") return [];
+    const numericValue = Number(item.value);
+    return [{
+      label: item.label,
+      value: Number.isFinite(numericValue) ? numericValue : 0,
+      display: typeof item.display === "string" ? item.display : String(item.value ?? "—"),
+      format: typeof item.format === "string" ? item.format : undefined,
+      tone: typeof item.tone === "string" ? item.tone : undefined,
+    }];
+  });
+}
+
+function resultCharts(value: unknown): ResultChart[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!isRecord(item) || typeof item.title !== "string" || !Array.isArray(item.series) || !Array.isArray(item.items)) return [];
+    const series = item.series.flatMap((entry) => {
+      if (!isRecord(entry) || typeof entry.key !== "string") return [];
+      return [{ key: entry.key, label: typeof entry.label === "string" ? entry.label : entry.key, format: typeof entry.format === "string" ? entry.format : undefined }];
+    });
+    const items = item.items.flatMap((entry) => {
+      if (!isRecord(entry) || typeof entry.label !== "string" || !isRecord(entry.values)) return [];
+      const values = Object.fromEntries(Object.entries(entry.values).map(([key, raw]) => [key, Number(raw) || 0]));
+      return [{ label: entry.label, records: Number(entry.records) || 0, values }];
+    });
+    return [{ title: item.title, dimension: typeof item.dimension === "string" ? item.dimension : undefined, series, items }];
+  });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function metadataText(metadata: Record<string, unknown>, key: string): string {
+  return typeof metadata[key] === "string" ? metadata[key] : "";
+}
+
+function formatResultValue(value: number | undefined, format?: string): string {
+  const number = Number(value) || 0;
+  if (format === "percent") return `${(number * 100).toFixed(1)}%`;
+  if (format === "currency") return `¥${number.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}`;
+  return number.toLocaleString("zh-CN", { maximumFractionDigits: 2 });
 }
 
 function TaskStatusIcon({ status }: { status: ExecutionTask["status"] }) {
@@ -426,6 +559,32 @@ function buildRuntimeGraph(run: ReportRun | null, tasks: ExecutionTask[]): Graph
   node(specId, "ReportSpecification", "动态结果合同", taskState(tasks[0]), run.result_contract);
   edge(goalId, specId, "INFERRED_AS", true, "目标包含分析与交付意图，推导 ReportSpecification");
 
+  const metricIds = (run.result_contract.metrics ?? []).map((metric, index) => {
+    const id = `${run.id}-metric-${index}`;
+    node(id, "MetricDefinition", metric, taskState(tasks.find((task) => task.task_key === "calculate_summary")), { metric });
+    edge(specId, id, "DEFINES_METRIC", true, `需求明确要求指标：${metric}`);
+    return id;
+  });
+  const dimensionIds = (run.result_contract.dimensions ?? [])
+    .filter((dimension) => !dimension.startsWith("系统自动"))
+    .map((dimension, index) => {
+      const id = `${run.id}-dimension-${index}`;
+      node(id, "Dimension", dimension, taskState(tasks.find((task) => task.task_key === "compare_dimensions")), { dimension });
+      edge(specId, id, "GROUPS_BY", true, `需求明确要求维度：${dimension}`);
+      return id;
+    });
+  (run.result_contract.analysis_intents ?? []).forEach((intent, index) => {
+    const id = `${run.id}-intent-${index}`;
+    node(id, "AnalysisIntent", intentText(intent), taskState(tasks[0]), { intent });
+    edge(goalId, id, "MATCHES_INTENT", true, `自然语言命中 ${intent}`);
+    edge(id, specId, "CONSTRAINS", true, "分析意图约束结果合同与任务计划");
+  });
+  const timeScopeId = run.result_contract.time_scope ? `${run.id}-time-scope` : "";
+  if (run.result_contract.time_scope) {
+    node(timeScopeId, "TimeScope", run.result_contract.time_scope.label ?? "目标期间", taskState(tasks.find((task) => task.task_key === "scope_time")), run.result_contract.time_scope);
+    edge(specId, timeScopeId, "APPLIES_SCOPE", true, "需求包含时间范围");
+  }
+
   let previousId = specId;
   tasks.forEach((task) => {
     const taskId = `${run.id}-task-${task.task_key}`;
@@ -442,6 +601,9 @@ function buildRuntimeGraph(run: ReportRun | null, tasks: ExecutionTask[]): Graph
     });
     edge(previousId, taskId, previousId === specId ? "DECOMPOSES_TO" : "PRECEDES", true, reasoning.rule ?? "任务依赖规则");
     edge(taskId, skillId, "IMPLEMENTED_BY", false, "Skill 提供 Task 所需能力");
+    if (task.task_key === "calculate_summary") metricIds.forEach((metricId) => edge(taskId, metricId, "COMPUTES"));
+    if (task.task_key === "compare_dimensions") dimensionIds.forEach((dimensionId) => edge(taskId, dimensionId, "USES_DIMENSION"));
+    if (task.task_key === "scope_time" && timeScopeId) edge(taskId, timeScopeId, "APPLIES");
     previousId = taskId;
   });
 
@@ -474,6 +636,18 @@ function compact(value: string, max: number) {
 
 function statusText(status: string) {
   return ({ planning: "规划中", pending: "等待", running: "执行中", succeeded: "已完成", failed: "失败", idle: "等待" } as Record<string, string>)[status] ?? status;
+}
+
+function intentText(intent: string) {
+  return ({
+    data_quality: "数据质量",
+    descriptive_analysis: "描述性分析",
+    time_scope: "时间范围",
+    dimension_comparison: "维度对比",
+    trend_analysis: "趋势分析",
+    collection_analysis: "销售回款分析",
+    anomaly_detection: "异常识别",
+  } as Record<string, string>)[intent] ?? intent;
 }
 
 function formatBytes(size: number) {

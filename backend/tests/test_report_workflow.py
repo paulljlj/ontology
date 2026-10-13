@@ -2,7 +2,9 @@ from pathlib import Path
 
 from app.application.report_workflow import (
     align_tables,
+    build_business_analysis,
     build_summary,
+    build_task_plan,
     canonical_header,
     clean_rows,
     compile_result_contract,
@@ -30,6 +32,20 @@ def test_contract_can_run_without_uploaded_files():
     assert any("自动选择" in item for item in contract["acceptance_criteria"])
 
 
+def test_task_plan_changes_with_requirement_intents():
+    collection_contract = compile_result_contract(
+        "分析最近三个月各区域销售额、回款金额和回款率趋势。", []
+    )
+    quality_contract = compile_result_contract("整理客户数据，识别重复和缺失问题并生成报告。", [])
+
+    collection_keys = [item[0] for item in build_task_plan(collection_contract)]
+    quality_keys = [item[0] for item in build_task_plan(quality_contract)]
+
+    assert {"scope_time", "compare_dimensions", "analyze_collection", "analyze_trend"}.issubset(collection_keys)
+    assert "detect_anomalies" in quality_keys
+    assert collection_keys != quality_keys
+
+
 def test_profiles_aligns_cleans_and_summarizes_data():
     tables = read_tabular(FIXTURE)
     profile = profile_tables(tables)
@@ -48,6 +64,12 @@ def test_profiles_aligns_cleans_and_summarizes_data():
     sales = next(item for item in summary["numeric"] if item["field"] == "销售额")
     assert sales["sum"] == 40000
     assert any(item["dimension"] == "区域" for item in summary["categorical"])
+
+    contract = compile_result_contract("按区域分析销售额和回款情况。", [])
+    analysis = build_business_analysis(cleaned, headers, contract, summary)
+    assert "问题" not in analysis["answer"]
+    assert analysis["kpis"]
+    assert analysis["charts"]
 
 
 def test_stdlib_xlsx_round_trip(tmp_path):

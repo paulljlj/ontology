@@ -82,9 +82,17 @@ export type ReportRun = {
     metrics?: string[];
     deliverables?: string[];
     acceptance_criteria?: string[];
+    time_scope?: { kind?: string; count?: number; label?: string } | null;
+    analysis_intents?: string[];
+    ontology_profile?: {
+      goal_class?: string;
+      intent_classes?: string[];
+      metric_concepts?: string[];
+      dimension_concepts?: string[];
+    };
   };
   input_files: Array<{ name: string; size: number }>;
-  summary: Record<string, number | string>;
+  summary: Record<string, unknown>;
   error: string;
   created_at: string;
   started_at?: string | null;

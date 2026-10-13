@@ -2110,7 +2110,7 @@ pre {
 }
 
 .resultDialog {
-  width: min(980px, 100%);
+  width: min(1180px, 100%);
   max-height: calc(100vh - 48px);
   overflow: auto;
   border: 1px solid #cdd8d0;
@@ -2138,17 +2138,45 @@ pre {
   border-radius: 9px;
 }
 
+.resultAnswer {
+  border: 1px solid #cbd9cf;
+  border-left: 4px solid #2f6b4f;
+  border-radius: 8px;
+  padding: 18px 20px;
+  background: #ffffff;
+}
+
+.resultAnswer p {
+  margin: 0;
+  color: #21332a;
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1.7;
+}
+
+.resultAnswer ul,
+.resultRecommendations ol {
+  margin: 12px 0 0;
+  padding-left: 21px;
+  color: #56645c;
+  font-size: 12px;
+  line-height: 1.75;
+}
+
 .resultNarrative {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  margin-top: 12px;
 }
 
 .resultNarrative section,
 .resultPath,
-.resultFiles {
+.resultFiles,
+.resultVisuals,
+.resultRecommendations {
   border: 1px solid #d9e0db;
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 13px;
   background: white;
 }
@@ -2165,7 +2193,9 @@ pre {
 }
 
 .resultPath,
-.resultFiles {
+.resultFiles,
+.resultVisuals,
+.resultRecommendations {
   margin-top: 12px;
 }
 
@@ -2207,6 +2237,15 @@ pre {
   background: #eef3ee;
 }
 
+.resultStats > div.tone-warning {
+  border-top-color: #b17a26;
+  background: #faf4e8;
+}
+
+.resultStats > div.tone-positive {
+  border-top-color: #2f6b4f;
+}
+
 .resultStats span,
 .resultStats strong {
   display: block;
@@ -2220,6 +2259,83 @@ pre {
 .resultStats strong {
   margin-top: 4px;
   font-size: 20px;
+}
+
+.resultChartGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.resultChart {
+  min-width: 0;
+  border: 1px solid #e0e5e1;
+  border-radius: 7px;
+  padding: 12px;
+  background: #fbfcfb;
+}
+
+.resultChartTitle {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.resultChartTitle strong {
+  font-size: 12px;
+}
+
+.resultChartTitle span {
+  color: #76827a;
+  font-size: 9px;
+}
+
+.resultChartRows {
+  display: grid;
+  gap: 8px;
+}
+
+.resultChartRow {
+  display: grid;
+  grid-template-columns: 68px minmax(80px, 1fr) 128px;
+  gap: 8px;
+  align-items: center;
+  font-size: 10px;
+}
+
+.resultChartRow > span {
+  overflow: hidden;
+  color: #46534c;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resultChartRow > div {
+  display: grid;
+  gap: 2px;
+  min-height: 14px;
+  align-content: center;
+  border-radius: 3px;
+  background: repeating-linear-gradient(90deg, #edf1ee 0, #edf1ee 24%, #f8faf8 24%, #f8faf8 25%);
+}
+
+.resultChartRow i {
+  display: block;
+  height: 6px;
+  border-radius: 2px;
+  background: #356b52;
+}
+
+.resultChartRow i.secondary {
+  background: #7699b3;
+}
+
+.resultChartRow em {
+  color: #516159;
+  font-size: 9px;
+  font-style: normal;
+  text-align: right;
 }
 
 .resultFileGrid {
@@ -2271,6 +2387,7 @@ pre {
 .resultFileGrid small {
   color: #768179;
   font-size: 9px;
+  line-height: 1.45;
 }
 
 .resultFootnote {
@@ -2355,8 +2472,13 @@ pre {
   .resultNode,
   .resultNarrative,
   .resultStats,
-  .resultFileGrid {
+  .resultFileGrid,
+  .resultChartGrid {
     grid-template-columns: 1fr;
+  }
+
+  .resultChartRow {
+    grid-template-columns: 60px minmax(70px, 1fr) 104px;
   }
 
   .resultNode button {
