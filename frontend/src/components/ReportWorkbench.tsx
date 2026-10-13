@@ -263,7 +263,19 @@ export function ReportWorkbench() {
         <section className="ontologyPanel">
           <div className="panelHeading">
             <div><GitBranch size={18} /><h2>实时本体知识图谱</h2></div>
-            <div className="graphLegend"><span><i className="solid" />事实</span><span><i className="inferred" />推理</span></div>
+            <div className="graphLegend">
+              <span><b className="nodeKind project">Project</b>项目类</span>
+              <span><b className="nodeKind feature">Feature</b>需求类</span>
+              <span><b className="nodeKind spec">Spec</b>规格类</span>
+              <span><b className="nodeKind plan">Plan</b>计划类</span>
+              <span><b className="nodeKind task">Task</b>任务类</span>
+              <span><b className="groupKind semantic">语义类</b></span>
+              <span><b className="groupKind capability">能力类</b></span>
+              <span><b className="groupKind delivery">产物类</b></span>
+              <span><b className="groupKind evidence">验证类</b></span>
+              <span><i className="solid" />显式关系</span>
+              <span><i className="inferred" />推理关系</span>
+            </div>
           </div>
           {activeRun ? (
             <>
@@ -284,7 +296,7 @@ export function ReportWorkbench() {
                 <dl>
                   <div><dt>触发规则</dt><dd>{activeReasoning.rule ?? activeTask?.skill_spec.ontology_rule ?? "等待规则匹配"}</dd></div>
                   <div><dt>推理结论</dt><dd>{activeReasoning.inference ?? "执行到该节点后显示推理结论。"}</dd></div>
-                  <div><dt>当前节点</dt><dd>{selectedOntology ? `${selectedOntology.class_name} · ${selectedOntology.title}` : "未选择"}</dd></div>
+                  <div><dt>当前节点</dt><dd>{selectedOntology ? ontologyDisplayLabel(selectedOntology) : "未选择"}</dd></div>
                 </dl>
               </div>
             </>
@@ -535,7 +547,11 @@ function buildRuntimeGraph(run: ReportRun | null, tasks: ExecutionTask[]): Graph
       class_name: className,
       title,
       status,
-      properties,
+      properties: {
+        ontology_category: ontologyCategory(className),
+        ontology_group: ontologyGroupLabel(className),
+        ...properties,
+      },
       created_at: run.created_at,
       updated_at: run.updated_at,
     });
@@ -553,11 +569,23 @@ function buildRuntimeGraph(run: ReportRun | null, tasks: ExecutionTask[]): Graph
     });
   };
 
+  const projectId = `${run.id}-project`;
+  const featureId = `${run.id}-feature`;
   const goalId = `${run.id}-goal`;
   const specId = `${run.id}-spec`;
+  const planId = `${run.id}-plan`;
+  node(projectId, "Project", "本体智能体执行项目", run.status, { workflow_type: run.workflow_type });
+  node(featureId, "Feature", compact(run.requirement, 38), run.status, { requirement: run.requirement });
   node(goalId, "Goal", compact(run.requirement, 38), run.status, { requirement: run.requirement });
   node(specId, "ReportSpecification", "动态结果合同", taskState(tasks[0]), run.result_contract);
+  node(planId, "Plan", `动态执行计划 · ${tasks.length} 个任务`, taskState(tasks[0]), {
+    task_count: tasks.length,
+    task_keys: tasks.map((task) => task.task_key),
+  });
+  edge(projectId, featureId, "HAS_FEATURE", false, "项目显式包含当前用户需求");
+  edge(featureId, goalId, "FORMULATES_GOAL", true, "从自然语言 Feature 推导结构化 Goal");
   edge(goalId, specId, "INFERRED_AS", true, "目标包含分析与交付意图，推导 ReportSpecification");
+  edge(specId, planId, "HAS_PLAN", true, "根据结果合同推导动态执行计划");
 
   const metricIds = (run.result_contract.metrics ?? []).map((metric, index) => {
     const id = `${run.id}-metric-${index}`;
@@ -585,7 +613,7 @@ function buildRuntimeGraph(run: ReportRun | null, tasks: ExecutionTask[]): Graph
     edge(specId, timeScopeId, "APPLIES_SCOPE", true, "需求包含时间范围");
   }
 
-  let previousId = specId;
+  let previousId = planId;
   tasks.forEach((task) => {
     const taskId = `${run.id}-task-${task.task_key}`;
     const skillId = `${run.id}-skill-${task.task_key}`;
@@ -599,7 +627,7 @@ function buildRuntimeGraph(run: ReportRun | null, tasks: ExecutionTask[]): Graph
       capabilities: task.skill_spec.required_capabilities,
       mcp_bindings: task.skill_spec.mcp_bindings,
     });
-    edge(previousId, taskId, previousId === specId ? "DECOMPOSES_TO" : "PRECEDES", true, reasoning.rule ?? "任务依赖规则");
+    edge(previousId, taskId, previousId === planId ? "HAS_TASK" : "PRECEDES", true, reasoning.rule ?? "任务依赖规则");
     edge(taskId, skillId, "IMPLEMENTED_BY", false, "Skill 提供 Task 所需能力");
     if (task.task_key === "calculate_summary") metricIds.forEach((metricId) => edge(taskId, metricId, "COMPUTES"));
     if (task.task_key === "compare_dimensions") dimensionIds.forEach((dimensionId) => edge(taskId, dimensionId, "USES_DIMENSION"));
@@ -628,6 +656,28 @@ function buildRuntimeGraph(run: ReportRun | null, tasks: ExecutionTask[]): Graph
 function taskState(task?: ExecutionTask) {
   if (!task) return "pending";
   return task.status === "succeeded" ? "ready" : task.status;
+}
+
+function ontologyCategory(className: string) {
+  if (className === "ReportSpecification" || className === "Spec") return "Spec";
+  if (className === "ExecutableTask" || className === "Task") return "Task";
+  return className;
+}
+
+function ontologyGroupLabel(className: string) {
+  if (["Project", "Feature", "Spec", "ReportSpecification", "Plan", "Task", "ExecutableTask"].includes(className)) return "主干类";
+  if (["Goal", "AnalysisIntent", "TimeScope", "Dimension", "MetricDefinition", "UserStory", "Clarification"].includes(className)) return "语义类";
+  if (["SkillDefinition", "DataModel", "Contract", "ADR"].includes(className)) return "能力类";
+  if (["Artifact", "DeliveryBundle"].includes(className)) return "产物类";
+  if (["Verification", "Acceptance", "Checklist", "Reflection", "ExecutionLog", "ServiceLog"].includes(className)) return "验证类";
+  return "扩展类";
+}
+
+function ontologyDisplayLabel(instance: OntologyInstance) {
+  const category = String(instance.properties.ontology_category ?? ontologyCategory(instance.class_name));
+  const group = String(instance.properties.ontology_group ?? ontologyGroupLabel(instance.class_name));
+  const concreteType = category === instance.class_name ? category : `${category} / ${instance.class_name}`;
+  return `${group} · ${concreteType} · ${instance.title}`;
 }
 
 function compact(value: string, max: number) {

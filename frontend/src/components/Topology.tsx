@@ -41,33 +41,98 @@ const CLASS_COLORS: Record<string, string> = {
   DeliveryBundle: "#e3e1ff",
 };
 
+const CORE_ONTOLOGY_CATEGORIES = new Set(["Project", "Feature", "Spec", "Plan", "Task"]);
+const SEMANTIC_CLASSES = new Set(["Goal", "AnalysisIntent", "TimeScope", "Dimension", "MetricDefinition", "UserStory", "Clarification"]);
+const CAPABILITY_CLASSES = new Set(["SkillDefinition", "DataModel", "Contract", "ADR"]);
+const DELIVERY_CLASSES = new Set(["Artifact", "DeliveryBundle"]);
+const EVIDENCE_CLASSES = new Set(["Verification", "Acceptance", "Checklist", "Reflection", "ExecutionLog", "ServiceLog"]);
+
+type OntologyGroup = "backbone" | "semantic" | "capability" | "delivery" | "evidence" | "other";
+
+const GROUP_LABELS: Record<OntologyGroup, string> = {
+  backbone: "主干类",
+  semantic: "语义类",
+  capability: "能力类",
+  delivery: "产物类",
+  evidence: "验证类",
+  other: "扩展类",
+};
+
 function classColor(name: string): string {
   return CLASS_COLORS[name] ?? "#8c8c8c";
 }
 
+function ontologyCategory(node: OntologyInstance): string {
+  const declaredCategory = node.properties?.ontology_category;
+  if (typeof declaredCategory === "string" && declaredCategory.trim()) return declaredCategory;
+  if (node.class_name === "ReportSpecification" || node.class_name === "Spec") return "Spec";
+  if (node.class_name === "ExecutableTask" || node.class_name === "Task") return "Task";
+  return node.class_name;
+}
+
+function ontologyGroup(node: OntologyInstance): OntologyGroup {
+  const category = ontologyCategory(node);
+  if (CORE_ONTOLOGY_CATEGORIES.has(category)) return "backbone";
+  if (SEMANTIC_CLASSES.has(node.class_name)) return "semantic";
+  if (CAPABILITY_CLASSES.has(node.class_name)) return "capability";
+  if (DELIVERY_CLASSES.has(node.class_name)) return "delivery";
+  if (EVIDENCE_CLASSES.has(node.class_name)) return "evidence";
+  return "other";
+}
+
+function nodeTypeLabel(node: OntologyInstance): string {
+  const category = ontologyCategory(node);
+  const concreteType = category === node.class_name ? category : `${category} / ${node.class_name}`;
+  return `${GROUP_LABELS[ontologyGroup(node)]} · ${concreteType}`;
+}
+
+function classOptionLabel(className: string): string {
+  const placeholder: OntologyInstance = {
+    id: "",
+    class_id: className,
+    class_name: className,
+    title: "",
+    status: "",
+    properties: {},
+    created_at: "",
+    updated_at: "",
+  };
+  return nodeTypeLabel(placeholder);
+}
+
 function buildElements(graph: Graph, selectedId: string | undefined): ElementDefinition[] {
-  const nodes: ElementDefinition[] = graph.nodes.map((node) => ({
-    data: {
-      id: node.id,
-      label: `${node.class_name}\n${node.title.length > 26 ? `${node.title.slice(0, 26)}…` : node.title}`,
-      className: node.class_name,
-      color: classColor(node.class_name),
-      status: node.status,
-      instance: node,
-    },
-    classes: selectedId === node.id ? "selected" : "",
-  }));
+  const nodes: ElementDefinition[] = graph.nodes.map((node) => {
+    const group = ontologyGroup(node);
+    return {
+      data: {
+        id: node.id,
+        label: `${nodeTypeLabel(node)}\n${node.title.length > 26 ? `${node.title.slice(0, 26)}…` : node.title}`,
+        className: node.class_name,
+        ontologyCategory: ontologyCategory(node),
+        ontologyGroup: group,
+        color: classColor(node.class_name),
+        status: node.status,
+        instance: node,
+      },
+      classes: `${selectedId === node.id ? "selected " : ""}group-${group}`.trim(),
+    };
+  });
   const edges: ElementDefinition[] = graph.edges
     .filter((edge) => edge.source_id && edge.target_id && edge.source_id !== edge.target_id)
-    .map((edge) => ({
-      data: {
-        id: edge.id ?? `${edge.source_id}-${edge.type}-${edge.target_id}`,
-        source: edge.source_id,
-        target: edge.target_id,
-        label: edge.type,
-        inferred: Boolean(edge.inferred ?? (edge.properties as { inferred?: boolean } | null)?.inferred),
-      },
-    }));
+    .map((edge) => {
+      const inferred = Boolean(edge.inferred ?? (edge.properties as { inferred?: boolean } | null)?.inferred);
+      return {
+        data: {
+          id: edge.id ?? `${edge.source_id}-${edge.type}-${edge.target_id}`,
+          source: edge.source_id,
+          target: edge.target_id,
+          label: edge.type,
+          inferred,
+          reason: edge.reason ?? (edge.properties as { reason?: string } | null)?.reason ?? "",
+        },
+        classes: inferred ? "inferred" : "asserted",
+      };
+    });
   return [...nodes, ...edges];
 }
 
@@ -122,6 +187,44 @@ export default function Topology({ graph, selected, onSelect }: TopologyProps) {
           },
         },
         {
+          selector: "node.group-backbone",
+          style: {
+            "border-width": 2.6,
+            "border-color": "#355f4b",
+            "font-weight": 700,
+            width: 210,
+            height: 72,
+          },
+        },
+        {
+          selector: "node.group-semantic",
+          style: {
+            "border-color": "#73879a",
+            "font-weight": 550,
+          },
+        },
+        {
+          selector: "node.group-capability",
+          style: {
+            "border-width": 2.1,
+            "border-color": "#ad7f2f",
+          },
+        },
+        {
+          selector: "node.group-delivery",
+          style: {
+            "border-width": 2.1,
+            "border-color": "#49795c",
+          },
+        },
+        {
+          selector: "node.group-evidence",
+          style: {
+            "border-width": 2.1,
+            "border-color": "#a55b68",
+          },
+        },
+        {
           selector: "edge",
           style: {
             width: 1.9,
@@ -138,9 +241,11 @@ export default function Topology({ graph, selected, onSelect }: TopologyProps) {
           },
         },
         {
-          selector: "edge[inferred = 'true']",
+          selector: "edge.inferred",
           style: {
+            width: 2.2,
             "line-style": "dashed",
+            "line-dash-pattern": [8, 5],
             "line-color": "#fa541c",
             "target-arrow-color": "#fa541c",
             "text-background-color": "#fff7e6",
@@ -211,7 +316,7 @@ export default function Topology({ graph, selected, onSelect }: TopologyProps) {
             <option value="all">全部</option>
             {classOptions.map((name) => (
               <option key={name} value={name}>
-                {name}
+                {classOptionLabel(name)}
               </option>
             ))}
           </select>

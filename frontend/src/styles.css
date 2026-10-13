@@ -1948,13 +1948,91 @@ pre {
 }
 
 .graphLegend {
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 10px;
 }
 
 .graphLegend span {
+  display: inline-flex;
+  align-items: center;
   gap: 5px;
   color: #68766e;
   font-size: 9px;
+}
+
+.graphLegend .nodeKind {
+  display: inline-grid;
+  min-width: 34px;
+  height: 18px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 0 5px;
+  font-size: 8px;
+  letter-spacing: 0.04em;
+}
+
+.graphLegend .nodeKind.spec {
+  border-color: #c7a8e8;
+  background: #eadcff;
+  color: #60358e;
+}
+
+.graphLegend .nodeKind.project {
+  border-color: #a9bee9;
+  background: #dce7ff;
+  color: #31558e;
+}
+
+.graphLegend .nodeKind.feature {
+  border-color: #e3c17a;
+  background: #fff0c9;
+  color: #7c5a18;
+}
+
+.graphLegend .nodeKind.plan {
+  border-color: #9fc4ea;
+  background: #dcecff;
+  color: #275f94;
+}
+
+.graphLegend .nodeKind.task {
+  border-color: #a7d9c7;
+  background: #d9f3ec;
+  color: #236b54;
+}
+
+.graphLegend .groupKind {
+  display: inline-grid;
+  height: 18px;
+  place-items: center;
+  border: 1px solid;
+  border-radius: 999px;
+  padding: 0 7px;
+  background: #fff;
+  font-size: 8px;
+  letter-spacing: 0.04em;
+}
+
+.graphLegend .groupKind.semantic {
+  border-color: #aebdca;
+  color: #526b7d;
+}
+
+.graphLegend .groupKind.capability {
+  border-color: #d7b978;
+  color: #7d5c20;
+}
+
+.graphLegend .groupKind.delivery {
+  border-color: #a9cbb3;
+  color: #37674a;
+}
+
+.graphLegend .groupKind.evidence {
+  border-color: #d5a8b0;
+  color: #874b57;
 }
 
 .graphLegend i {
@@ -2467,6 +2545,25 @@ pre {
 
   .runtimeGrid {
     min-height: 0;
+  }
+
+  .ontologyPanel .panelHeading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .graphLegend {
+    justify-content: flex-start;
+  }
+
+  .runtimeTopology .topologyScroller {
+    overflow: hidden;
+  }
+
+  .runtimeTopology .topology {
+    width: 100%;
+    min-height: 560px;
   }
 
   .resultNode,
