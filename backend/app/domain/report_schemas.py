@@ -1,7 +1,13 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+def _utc_if_naive(value):
+    # SQLite strips timezone metadata; the application and SQLite CURRENT_TIMESTAMP
+    # store UTC. PostgreSQL aware values are already correct and remain unchanged.
+    return value.replace(tzinfo=timezone.utc) if isinstance(value, datetime) and value.tzinfo is None else value
 
 
 class WorkflowRunCreate(BaseModel):
@@ -26,6 +32,11 @@ class ExecutionTaskRead(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+    @field_validator("started_at", "completed_at", mode="before")
+    @classmethod
+    def normalize_timestamps(cls, value):
+        return _utc_if_naive(value)
+
 
 class ArtifactRead(BaseModel):
     id: str
@@ -39,6 +50,11 @@ class ArtifactRead(BaseModel):
     download_url: str = ""
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    @field_validator("created_at", mode="before")
+    @classmethod
+    def normalize_timestamps(cls, value):
+        return _utc_if_naive(value)
 
 
 class WorkflowRunRead(BaseModel):
@@ -59,3 +75,8 @@ class WorkflowRunRead(BaseModel):
     artifacts: list[ArtifactRead] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("created_at", "started_at", "completed_at", "updated_at", mode="before")
+    @classmethod
+    def normalize_timestamps(cls, value):
+        return _utc_if_naive(value)

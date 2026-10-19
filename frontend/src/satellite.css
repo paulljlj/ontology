@@ -1,0 +1,188 @@
+.workspaceModeNav { display:flex;align-items:center;justify-content:space-between;gap:20px;padding:10px max(24px,calc((100vw - 1560px)/2));background:#102b45;color:#b9ccdc;font:11px/1.5 "Segoe UI","Microsoft YaHei",sans-serif;letter-spacing:.1em; }
+.workspaceModeNav > div { display:flex;gap:4px; }
+.workspaceModeNav button { border:0;border-radius:5px;background:transparent;color:#c6d6e3;font-size:12px;padding:7px 13px;letter-spacing:0; }
+.workspaceModeNav button[aria-pressed="true"] { color:#102b45;background:#f1f6fa;font-weight:650; }
+.satelliteWorkspace { --sat-ink:#17334e;--sat-blue:#1764a0;--sat-muted:#6b7f91;--sat-line:#dce5ed;--sat-soft:#f3f7fa;max-width:1608px;margin:0 auto;padding:0 24px 24px;color:var(--sat-ink);font-family:"Segoe UI","Microsoft YaHei",sans-serif; }
+.satelliteWorkspace button,.satelliteWorkspace input,.satelliteWorkspace select,.satelliteWorkspace textarea { font:inherit; }
+.satelliteWorkspace button { transition:background .15s,border-color .15s; }
+.satelliteWorkspace button:focus-visible,.satelliteWorkspace a:focus-visible,.satelliteWorkspace summary:focus-visible { outline:3px solid #91b9dc;outline-offset:3px; }
+.satelliteWorkspace input:focus,.satelliteWorkspace select:focus,.satelliteWorkspace textarea:focus { outline:2px solid #96bad9;outline-offset:1px; }
+.satelliteHeader { min-height:83px;display:flex;align-items:center;justify-content:space-between;gap:22px;border-bottom:1px solid var(--sat-line); }
+.satelliteIdentity,.satelliteHeaderActions { display:flex;align-items:center;gap:12px; }
+.satelliteLogo { display:grid;place-items:center;width:41px;height:41px;border-radius:9px;background:#173b5a;color:#fff; }
+.satelliteIdentity strong { display:block;font-size:17px;letter-spacing:.04em; }
+.satelliteIdentity small { display:block;margin-top:4px;font-size:9px;letter-spacing:.1em;color:var(--sat-muted); }
+.satelliteHistory { display:flex;align-items:center;gap:8px;padding:7px 10px;background:white;border:1px solid var(--sat-line);border-radius:6px; }
+.satelliteHistory select { max-width:280px;border:0;background:transparent;color:var(--sat-ink);font-size:12px; }
+.satelliteIconButton { display:inline-grid;place-items:center;padding:8px;background:#fff;border:1px solid var(--sat-line);border-radius:6px;color:var(--sat-ink); }
+.satelliteHero { display:flex;justify-content:space-between;align-items:center;gap:42px;padding:29px 0 26px; }
+.satelliteEyebrow { display:flex;align-items:center;gap:6px;color:var(--sat-blue);font-size:11px;font-weight:650;letter-spacing:.04em;margin:0 0 10px; }
+.satelliteHero h1 { font-size:28px;line-height:1.4;letter-spacing:.015em;margin:0 0 9px; }
+.satelliteHero > div > p:last-child { font-size:12px;color:var(--sat-muted);margin:0;line-height:1.8; }
+.satelliteBoundary { display:flex;align-items:flex-start;gap:10px;max-width:360px;padding-left:19px;border-left:2px solid #a8bdce; }
+.satelliteBoundary > svg { flex:none;margin-top:3px;color:#557b98; }
+.satelliteBoundary strong { display:block;font-size:12px;line-height:1.8; }
+.satelliteBoundary span { display:block;font-size:11px;line-height:1.9;color:var(--sat-muted);margin-top:4px; }
+.satelliteError { display:flex;align-items:flex-start;gap:11px;padding:14px 16px;margin:0 0 18px;border:1px solid #ebcfc4;background:#fff7f2;border-radius:7px;color:#934626; }
+.satelliteError > svg { flex:none;margin-top:2px; }
+.satelliteError p { white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.8;margin:0;flex:1; }
+.satelliteError button { border:0;background:transparent;color:inherit;padding:3px; }
+.satelliteMainGrid { display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:20px;align-items:start; }
+.satelliteWorkColumn { display:flex;flex-direction:column;gap:18px;min-width:0; }
+.satellitePanel { background:white;border:1px solid var(--sat-line);border-radius:8px;padding:20px;min-width:0; }
+.satelliteSectionHeading { display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px; }
+.satelliteSectionHeading h2 { display:flex;align-items:center;gap:8px;margin:0;font-size:14px;font-weight:700; }
+.satelliteSectionHeading h2 > svg { color:#3e759e; }
+.satelliteMuted { color:var(--sat-muted);font-size:10px;line-height:1.7; }
+.satelliteInputGrid { display:grid;grid-template-columns:1fr 1.4fr;gap:16px; }
+.satelliteComposer label { display:flex;flex-direction:column;gap:8px;min-width:0; }
+.satelliteComposer label > span { font-size:12px;font-weight:650; }
+.satelliteComposer label small { color:var(--sat-muted);font-size:10px;font-weight:400;margin-left:6px; }
+.satelliteComposer input,.satelliteComposer select,.satelliteComposer textarea { border:1px solid #cedbe6;border-radius:5px;background:#fff;color:var(--sat-ink);padding:10px 11px;min-width:0;width:100%;font-size:12px;line-height:1.6; }
+.satelliteComposer textarea { resize:vertical; }
+.satelliteCaseInfo { display:flex;flex-wrap:wrap;gap:10px 18px;padding:12px 0 15px;color:var(--sat-muted); }
+.satelliteCaseInfo span { display:flex;align-items:center;gap:5px;font-size:10px;line-height:1.8; }
+.satelliteCaseInfo span:last-child { flex-basis:100%; }
+.satelliteRequirement { margin-top:3px; }
+.satelliteAdvanced { margin-top:14px;border-top:1px solid #e8eef3;padding-top:12px; }
+.satelliteAdvanced > summary { display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;color:#446d8c;font-size:11px; }
+.satelliteAdvanced > summary::-webkit-details-marker { display:none; }
+.satelliteAdvanced[open] > summary > svg { transform:rotate(90deg); }
+.satelliteAdvanced .satelliteInputGrid { margin:15px 0;grid-template-columns:1fr 1fr; }
+.satelliteCodeInput { font-family:Consolas,monospace!important;font-size:11px!important; }
+.satelliteHelper { color:var(--sat-muted);font-size:11px;line-height:1.9;margin:8px 0;overflow-wrap:anywhere; }
+.satellitePresets { display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:16px; }
+.satellitePresets > span { color:var(--sat-muted);font-size:10px;margin-right:3px; }
+.satellitePresets button { padding:5px 8px;border:1px solid #dae5ee;border-radius:4px;background:#f8fafc;color:#45647d;font-size:10px; }
+.satellitePresets button:hover { background:#eaf2f8; }
+.satelliteSubmitRow { display:flex;align-items:center;justify-content:space-between;gap:16px;border-top:1px solid #e8eef3;margin-top:17px;padding-top:16px; }
+.satelliteSubmitRow > p { display:flex;align-items:flex-start;gap:6px;color:var(--sat-muted);font-size:10px;line-height:1.8;margin:0; }
+.satelliteSubmitRow > p > svg { flex:none;margin-top:2px; }
+.satellitePrimaryButton { display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 16px;white-space:nowrap;border:1px solid #244f72;border-radius:5px;background:#254f71;color:#fff;font-size:12px!important;font-weight:650!important; }
+.satellitePrimaryButton:hover:not(:disabled) { background:#173d5b; }
+.satelliteRunState { display:inline-flex;font-size:10px;color:#61788b; }
+.satelliteRunState.state-running,.satelliteRunState.state-planning { color:#1764a0; }
+.satelliteRunState.state-succeeded { color:#34725e; }
+.satelliteRunState.state-failed { color:#ad4b43; }
+.satelliteProgress { height:4px;background:#edf2f6;border-radius:5px;overflow:hidden; }
+.satelliteProgress > span { display:block;height:100%;background:#437da7;transition:width .3s; }
+.satelliteProgressCaption { display:flex;justify-content:space-between;font-size:10px;color:var(--sat-muted);margin-top:8px; }
+.satelliteProgressCaption strong { color:#3a698e; }
+.satelliteTaskList { margin:20px 0 0;padding:0;list-style:none; }
+.satelliteTaskList > li { position:relative;display:flex;align-items:flex-start;gap:12px;padding:0 0 22px;margin-left:2px;color:#8193a2; }
+.satelliteTaskList > li:not(:last-child)::after { content:"";position:absolute;left:8px;top:24px;bottom:5px;border-left:1px solid #dce5ed; }
+.satelliteTaskList > li > svg,.satellitePendingCircle { flex:none;margin-top:2px; }
+.satelliteTaskList > li.task-succeeded > svg { color:#45806a; }
+.satelliteTaskList > li.task-running > svg { color:#2875ac; }
+.satelliteTaskList > li.task-failed > svg { color:#b64c43; }
+.satelliteTaskList > li > div { flex:1;min-width:0; }
+.satelliteTaskList strong { color:var(--sat-ink);font-size:12px; }
+.satelliteTaskList p { margin:5px 0;color:var(--sat-muted);font-size:11px;line-height:1.8; }
+.satelliteTaskMeta { display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:10px;margin-top:6px; }
+.satelliteTaskMeta code { background:#f2f6f9;color:#61788b;padding:2px 5px;border-radius:3px; }
+.satelliteTaskOutput { color:#47846c!important;overflow-wrap:anywhere; }
+.satelliteInlineError { color:#b15044!important;overflow-wrap:anywhere; }
+.satellitePendingCircle { width:17px;height:17px;border:1.6px solid #bdcbd6;border-radius:50%; }
+.satelliteTextButton { display:inline-flex;align-items:center;gap:3px;padding:3px 0;margin-top:4px;background:transparent;border:0;color:#34749f;font-size:10px!important;text-align:left; }
+.satelliteEmpty { display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:135px;padding:23px;text-align:center;color:#8295a6; }
+.satelliteEmpty > svg { opacity:.7;margin-bottom:11px; }
+.satelliteEmpty p { max-width:500px;font-size:11px;line-height:1.9;margin:0; }
+.satelliteSimulationLabel { background:#edf4f9;border:1px solid #dce7ef;border-radius:4px;padding:4px 7px;font-size:10px;color:#446d8c;white-space:nowrap; }
+.satelliteRoutePlans { display:flex;flex-direction:column;gap:16px; }
+.satelliteRoutePlans > article { border-top:1px solid #e0e8ef;padding-top:16px; }
+.satelliteRoutePlans > article:first-child { padding-top:0;border-top:0; }
+.satelliteRoutePlans > article > header { display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px; }
+.satelliteRoutePlans > article > header > div > span { color:#718a9d;font-size:9px;letter-spacing:.06em; }
+.satelliteRoutePlans h3 { margin:5px 0 0;font-size:13px; }
+.satelliteRouteChange { margin:10px 0 15px;padding:13px;background:#f7f9fb;border-left:2px solid #9eb8cc; }
+.satelliteRouteChange > strong { display:block;font-size:11px;margin-bottom:9px; }
+.satellitePathLine { display:flex;gap:12px;margin:8px 0;font-size:10px;line-height:1.8; }
+.satellitePathLine > span { min-width:46px;color:#7890a2; }
+.satellitePathLine > div { display:flex;flex-wrap:wrap;gap:5px; }
+.satellitePathLine > div > span { display:inline-flex;align-items:center;gap:5px; }
+.satellitePathLine code { font-size:11px;color:#375c78; }
+.satelliteRouteMetrics { display:flex;gap:12px 25px;flex-wrap:wrap;margin:14px 0 2px; }
+.satelliteRouteMetrics > div { max-width:190px; }
+.satelliteRouteMetrics dt { color:var(--sat-muted);font-size:10px;overflow-wrap:anywhere; }
+.satelliteRouteMetrics dd { margin:5px 0 0;font-size:13px;font-weight:650; }
+.satelliteResourceComparison { margin:16px 0; }
+.satelliteResourceComparison h4 { font-size:11px;margin:0 0 6px; }
+.satelliteRiskLine { display:flex;align-items:flex-start;gap:6px;color:#8b6f45;font-size:10px;line-height:1.8; }
+.satelliteRiskLine > svg { flex:none;margin-top:2px; }
+.satelliteJson { margin-top:11px;font-size:10px;color:#56758d; }
+.satelliteJson summary { cursor:pointer; }
+.satelliteJson pre { white-space:pre-wrap;overflow-wrap:anywhere;font-size:10px;line-height:1.8;max-height:460px;overflow:auto;padding:13px;background:#f3f6f9;border:1px solid #e0e8ef;border-radius:5px;color:#415c72; }
+.satelliteTopology { overflow:auto; }
+.satelliteTopology svg { width:100%;min-width:520px;min-height:220px;max-height:340px; }
+.satelliteTopology line { stroke:#c3d5e3;stroke-width:1.5; }
+.satelliteTopology circle { fill:#e8f1f8;stroke:#8bafc9;stroke-width:1.4; }
+.satelliteTopology text { fill:#496b84;font-size:10px;font-family:Consolas,"Microsoft YaHei",sans-serif; }
+.satelliteTopology .satelliteNodeMark { font-size:11px;font-weight:700;fill:#386384; }
+.satelliteTopology .is-ground circle { fill:#edf2eb;stroke:#a1b69a; }
+.satelliteTopology p { font-size:10px;color:var(--sat-muted);margin:2px 0 0;line-height:1.8; }
+.satelliteServerList { display:flex;flex-wrap:wrap;gap:8px 18px;margin:13px 0; }
+.satelliteServerList > div { display:flex;gap:7px;align-items:center;font-size:10px; }
+.satelliteServerList strong { font-size:10px; }
+.satelliteServerList span,.satelliteServerList small { color:var(--sat-muted);font-size:9px; }
+.satelliteServerDot { width:6px;height:6px;border-radius:50%;background:#aebbc5; }
+.satelliteServerDot.enabled { background:#599184; }
+.satelliteNoCalls { background:#f5f8fa;border-radius:5px;padding:13px;color:var(--sat-muted);font-size:10px;line-height:1.8; }
+.satelliteTableScroll { overflow:auto; }
+.satelliteCallTable { width:100%;border-collapse:collapse;text-align:left;font-size:10px; }
+.satelliteCallTable th { font-weight:550;color:#7590a5;background:#f5f8fa;padding:9px 8px; }
+.satelliteCallTable td { padding:10px 8px;border-bottom:1px solid #e6edf3;vertical-align:top; }
+.satelliteCallTable strong,.satelliteCallTable code,.satelliteCallTable small { display:block;max-width:260px;overflow-wrap:anywhere;font-size:10px; }
+.satelliteCallTable code { color:var(--sat-muted);font-size:9px;margin-top:4px; }
+.satelliteReportColumn { min-width:0;border:1px solid #d4e0e9;border-radius:8px;background:#fff;overflow:hidden; }
+.satelliteReportHeader { display:flex;align-items:center;justify-content:space-between;padding:19px 20px;border-bottom:1px solid #dce5ed;background:#f7fafc; }
+.satelliteReportHeader > div { display:flex;align-items:center;gap:8px; }
+.satelliteReportHeader svg { color:#3479aa; }
+.satelliteReportHeader h2 { font-size:15px;margin:0; }
+.satelliteReportHeader > span { font-size:9px;color:var(--sat-muted); }
+.satelliteReportNotice { margin:17px 18px 0;padding:12px 13px;background:#f6f8ec;border-left:2px solid #adac6b;color:#6f7047; }
+.satelliteReportNotice strong { font-size:11px; }
+.satelliteReportNotice p { margin:5px 0 0;font-size:10px;line-height:1.9; }
+.satelliteReportNotice b { display:block;margin-top:5px;font-size:10px;font-weight:550;line-height:1.8; }
+.satelliteReportMeta { display:flex;flex-direction:column;gap:5px;margin:14px 20px 0;color:#758b9d;font-size:9px;line-height:1.6;overflow-wrap:anywhere; }
+.satelliteReportPart { padding:20px;border-bottom:1px solid #e7edf3; }
+.satelliteReportPart > h3 { display:flex;align-items:center;gap:9px;font-size:12px;margin:0 0 11px; }
+.satelliteReportPart > h3 > span { display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#eaf2f8;color:#336f9c;font-size:9px;font-weight:650; }
+.satelliteReportPart p,.satelliteReportPart li { font-size:11px;line-height:1.95;color:#526b80;margin:7px 0;overflow-wrap:anywhere; }
+.satelliteReportPart ul { padding-left:17px;margin:5px 0; }
+.satelliteMetricList { display:grid;grid-template-columns:1fr 1fr;gap:14px 12px;margin-top:16px; }
+.satelliteMetricList > div { min-width:0;border-left:2px solid #b1cadd;padding-left:9px; }
+.satelliteMetricList span { display:block;font-size:10px;color:#6b879b; }
+.satelliteMetricList strong { display:block;margin-top:5px;font-size:18px;color:#285a7f;overflow-wrap:anywhere; }
+.satelliteMetricList small { font-size:10px;font-weight:400;margin-left:4px;color:#7d91a1; }
+.satelliteReportItems { display:flex;flex-direction:column;gap:12px; }
+.satelliteReportItems article > strong { font-size:11px; }
+.satelliteReportItems article p { margin-top:3px; }
+.satelliteItemState { font-size:10px;color:#7b8d9b;display:block; }
+.satelliteMissing { margin-top:13px;padding:11px 12px;border-left:2px solid #bca77b;background:#fbf8f1; }
+.satelliteMissing > strong { font-size:10px;color:#8b7350; }
+.satelliteMissing li { font-size:10px;color:#8b7350; }
+.satelliteDownloads { padding:19px 20px 22px;background:#fbfcfe; }
+.satelliteDownloads h3 { display:flex;align-items:center;gap:7px;font-size:11px;margin:0 0 12px; }
+.satelliteDownloads a { display:flex;align-items:center;gap:9px;color:#396b8e;text-decoration:none;border:1px solid #dce6ef;padding:10px;border-radius:5px;background:#fff;margin-top:8px; }
+.satelliteDownloads a > svg { flex:none; }
+.satelliteDownloads a > span { flex:1;min-width:0;font-size:10px;overflow-wrap:anywhere; }
+.satelliteDownloads a small { display:block;color:var(--sat-muted);font-size:9px;margin-top:4px; }
+.satelliteDownloads p { font-size:10px;line-height:1.9;color:var(--sat-muted);margin-bottom:0; }
+.satelliteFooter { display:flex;align-items:center;justify-content:space-between;gap:20px;padding:22px 0 0;color:#8a9ba9;font-size:10px; }
+.satelliteFooter p { margin:0;line-height:1.8; }
+.satelliteEvidenceOverlay { position:fixed;inset:0;z-index:1000;background:#152c4499;display:flex;justify-content:flex-end; }
+.satelliteEvidenceOverlay > section { background:#fff;width:min(670px,100%);height:100%;overflow:auto;padding:26px;box-shadow:-10px 0 50px #10273f30; }
+.satelliteEvidenceOverlay header { display:flex;align-items:center;justify-content:space-between;gap:20px;border-bottom:1px solid var(--sat-line);padding-bottom:18px; }
+.satelliteEvidenceOverlay header span { color:#7f94a4;font-size:10px; }
+.satelliteEvidenceOverlay h2 { font-size:18px;margin:7px 0 0;line-height:1.6; }
+.satelliteEvidenceOverlay > section > p { font-size:11px;color:var(--sat-muted);line-height:1.9; }
+.satelliteEvidenceOverlay .satelliteJson pre { max-height:none;min-height:220px; }
+.satelliteEvidenceOverlay .satellitePrimaryButton { margin-top:18px; }
+.satelliteSpin { animation:satellite-spin 1s linear infinite; }
+.srOnly { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0; }
+@keyframes satellite-spin { to { transform:rotate(360deg); } }
+@media (min-width:1450px) { .satelliteMainGrid { grid-template-columns:minmax(0,1fr) 425px; } }
+@media (max-width:1120px) { .satelliteMainGrid { grid-template-columns:minmax(0,1fr) 340px;gap:14px; }.satellitePanel { padding:16px; }.satelliteHero h1 { font-size:24px; }.satelliteBoundary { max-width:290px; }.satelliteInputGrid { grid-template-columns:1fr; }.satelliteSubmitRow { align-items:flex-start;flex-direction:column; }.satelliteSubmitRow .satellitePrimaryButton { align-self:flex-end; }.satelliteReportPart { padding:17px; } }
+@media (max-width:850px) { .satelliteMainGrid { grid-template-columns:1fr; }.satelliteHero { gap:20px; }.satelliteBoundary { max-width:280px; }.satelliteReportColumn { margin-top:0; }.satelliteMetricList { grid-template-columns:repeat(3,1fr); }.satelliteInputGrid { grid-template-columns:1fr 1.4fr; } }
+@media (max-width:600px) { .workspaceModeNav { padding:9px 14px; }.workspaceModeNav > span { display:none; }.workspaceModeNav > div { width:100%; }.workspaceModeNav button { flex:1; }.satelliteWorkspace { padding:0 14px 20px; }.satelliteHeader { min-height:73px;gap:10px;flex-wrap:wrap;padding:12px 0; }.satelliteIdentity strong { font-size:14px; }.satelliteIdentity small { font-size:8px; }.satelliteHistory { padding:6px; }.satelliteHistory select { max-width:145px;font-size:10px; }.satelliteHeaderActions { gap:6px; }.satelliteHero { flex-direction:column;align-items:flex-start;padding:23px 0;gap:18px; }.satelliteHero h1 { font-size:23px; }.satelliteBoundary { max-width:none;padding-left:12px; }.satelliteInputGrid,.satelliteAdvanced .satelliteInputGrid { grid-template-columns:1fr;gap:13px; }.satelliteSectionHeading { align-items:flex-start; }.satelliteSectionHeading > .satelliteMuted { text-align:right;max-width:110px; }.satelliteMetricList { grid-template-columns:1fr 1fr; }.satelliteFooter { align-items:flex-start;flex-direction:column;gap:7px; }.satelliteEvidenceOverlay > section { padding:20px; } }
+@media (prefers-reduced-motion:reduce) { .satelliteSpin { animation:none; }.satelliteProgress > span { transition:none; } }

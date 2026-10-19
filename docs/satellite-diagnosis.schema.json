@@ -1,0 +1,227 @@
+{
+  "$defs": {
+    "CauseCandidate": {
+      "additionalProperties": false,
+      "properties": {
+        "object_id": {
+          "maxLength": 180,
+          "minLength": 1,
+          "title": "Object Id",
+          "type": "string"
+        },
+        "object_type": {
+          "enum": [
+            "satellite",
+            "ground_station",
+            "link"
+          ],
+          "title": "Object Type",
+          "type": "string"
+        },
+        "mechanism": {
+          "maxLength": 240,
+          "minLength": 1,
+          "title": "Mechanism",
+          "type": "string"
+        },
+        "status": {
+          "default": "candidate",
+          "enum": [
+            "candidate",
+            "supported",
+            "insufficient_evidence"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "supporting_evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 200,
+          "title": "Supporting Evidence Ids",
+          "type": "array"
+        },
+        "contradicting_evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 200,
+          "title": "Contradicting Evidence Ids",
+          "type": "array"
+        },
+        "missing_evidence": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Missing Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "object_id",
+        "object_type",
+        "mechanism"
+      ],
+      "title": "CauseCandidate",
+      "type": "object"
+    },
+    "EvidenceReference": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_id": {
+          "maxLength": 180,
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "object_id": {
+          "maxLength": 180,
+          "minLength": 1,
+          "title": "Object Id",
+          "type": "string"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "title": "Timestamp",
+          "type": "string"
+        },
+        "available_at": {
+          "format": "date-time",
+          "title": "Available At",
+          "type": "string"
+        },
+        "source_file": {
+          "pattern": "^observed/[a-z_]+\\.csv$",
+          "title": "Source File",
+          "type": "string"
+        },
+        "record_id": {
+          "maxLength": 240,
+          "minLength": 1,
+          "title": "Record Id",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 1000,
+          "title": "Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "object_id",
+        "timestamp",
+        "available_at",
+        "source_file",
+        "record_id"
+      ],
+      "title": "EvidenceReference",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A collaborator supplies this JSON; no executable code or file paths.",
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "case_id": {
+      "pattern": "^CASE-\\d{3,12}$",
+      "title": "Case Id",
+      "type": "string"
+    },
+    "analysis_start": {
+      "format": "date-time",
+      "title": "Analysis Start",
+      "type": "string"
+    },
+    "analysis_end": {
+      "format": "date-time",
+      "title": "Analysis End",
+      "type": "string"
+    },
+    "as_of": {
+      "format": "date-time",
+      "title": "As Of",
+      "type": "string"
+    },
+    "source": {
+      "default": "external_diagnosis",
+      "enum": [
+        "external_diagnosis",
+        "development_fixture"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "overview": {
+      "additionalProperties": true,
+      "title": "Overview",
+      "type": "object"
+    },
+    "causes": {
+      "items": {
+        "$ref": "#/$defs/CauseCandidate"
+      },
+      "maxItems": 100,
+      "title": "Causes",
+      "type": "array"
+    },
+    "watch_items": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "maxItems": 200,
+      "title": "Watch Items",
+      "type": "array"
+    },
+    "impact": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "maxItems": 200,
+      "title": "Impact",
+      "type": "array"
+    },
+    "conclusions": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 100,
+      "title": "Conclusions",
+      "type": "array"
+    },
+    "missing_evidence": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 100,
+      "title": "Missing Evidence",
+      "type": "array"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/EvidenceReference"
+      },
+      "maxItems": 2000,
+      "title": "Evidence",
+      "type": "array"
+    }
+  },
+  "required": [
+    "case_id",
+    "analysis_start",
+    "analysis_end",
+    "as_of"
+  ],
+  "title": "DiagnosisInput",
+  "type": "object"
+}

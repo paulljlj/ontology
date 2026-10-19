@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from pathlib import Path
 from typing import Any
@@ -53,6 +54,15 @@ def _validate_value(field_name: str, value: Any, details: dict[str, Any]) -> str
         return f"字段「{field_name}」必须是字符串"
     if kind == "integer" and (not isinstance(value, int) or isinstance(value, bool)):
         return f"字段「{field_name}」必须是整数"
+    if kind == "number":
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return f"字段「{field_name}」必须是有限数值"
+        try:
+            finite = math.isfinite(value)
+        except OverflowError:
+            finite = False
+        if not finite:
+            return f"字段「{field_name}」必须是有限数值"
     if kind == "boolean" and not isinstance(value, bool):
         return f"字段「{field_name}」必须是布尔值"
     if kind == "list" and not isinstance(value, list):

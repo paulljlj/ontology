@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "case_id": "CASE-001",
+  "analysis_start": "2026-09-15T10:00:00+08:00",
+  "analysis_end": "2026-09-15T10:15:00+08:00",
+  "as_of": "2026-09-15T10:16:00+08:00",
+  "source": "development_fixture",
+  "overview": {
+    "note": "仅验证接口格式，不代表同学诊断算法的实际输出。"
+  },
+  "causes": [
+    {
+      "object_id": "SAT-20",
+      "object_type": "satellite",
+      "mechanism": "开发接口样例：核查转发容量线索，尚未确认根因。",
+      "status": "candidate",
+      "supporting_evidence_ids": ["example-node-observation"],
+      "contradicting_evidence_ids": [],
+      "missing_evidence": ["待同学提供实际诊断结果与正常对照分析。"]
+    }
+  ],
+  "watch_items": [],
+  "impact": [],
+  "conclusions": ["这是开发样例；正式运行请由诊断模块生成结果。"],
+  "missing_evidence": ["实际诊断模块的输出。"],
+  "evidence": [
+    {
+      "evidence_id": "example-node-observation",
+      "object_id": "SAT-20",
+      "timestamp": "2026-09-15T10:14:00+08:00",
+      "available_at": "2026-09-15T10:15:05+08:00",
+      "source_file": "observed/node_metrics.csv",
+      "record_id": "CASE-001-SAT-20-T44",
+      "description": "引用公开观测样本，测试证据定位，不代表已确认故障。"
+    }
+  ]
+}

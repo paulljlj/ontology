@@ -1,0 +1,7 @@
+{
+  "name": "ontology-satellite-external-mcp",
+  "private": true,
+  "dependencies": {
+    "@modelcontextprotocol/server-filesystem": "2.0.0"
+  }
+}

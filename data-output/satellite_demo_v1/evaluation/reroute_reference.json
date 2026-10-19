@@ -1,0 +1,355 @@
+{
+  "evaluation_only": true,
+  "case_id": "CASE-001",
+  "timestamp": "2026-09-15T10:10:00.000+08:00",
+  "experiment_kind": "same_demand_synthetic_model_counterfactual_not_a_real_switch",
+  "simultaneous_service_count": 10,
+  "changes": [
+    {
+      "service_id": "SVC-001",
+      "before_nodes": [
+        "SAT-03",
+        "SAT-20",
+        "GS-01"
+      ],
+      "after_nodes": [
+        "SAT-03",
+        "SAT-21",
+        "GS-01"
+      ],
+      "before_availability_pct": 92.41,
+      "estimated_after_availability_pct": 99.37,
+      "estimated_after_latency_ms": 38.259
+    },
+    {
+      "service_id": "SVC-002",
+      "before_nodes": [
+        "SAT-07",
+        "SAT-20",
+        "GS-02"
+      ],
+      "after_nodes": [
+        "SAT-07",
+        "SAT-21",
+        "GS-02"
+      ],
+      "before_availability_pct": 92.39,
+      "estimated_after_availability_pct": 99.34,
+      "estimated_after_latency_ms": 39.379
+    },
+    {
+      "service_id": "SVC-003",
+      "before_nodes": [
+        "SAT-10",
+        "SAT-20",
+        "GS-01"
+      ],
+      "after_nodes": [
+        "SAT-10",
+        "SAT-21",
+        "GS-01"
+      ],
+      "before_availability_pct": 92.52,
+      "estimated_after_availability_pct": 99.48,
+      "estimated_after_latency_ms": 36.719
+    },
+    {
+      "service_id": "SVC-004",
+      "before_nodes": [
+        "SAT-12",
+        "SAT-20",
+        "GS-03"
+      ],
+      "after_nodes": [
+        "SAT-12",
+        "SAT-21",
+        "GS-03"
+      ],
+      "before_availability_pct": 92.5,
+      "estimated_after_availability_pct": 99.47,
+      "estimated_after_latency_ms": 40.279
+    },
+    {
+      "service_id": "SVC-005",
+      "before_nodes": [
+        "SAT-16",
+        "SAT-20",
+        "GS-02"
+      ],
+      "after_nodes": [
+        "SAT-16",
+        "SAT-21",
+        "GS-02"
+      ],
+      "before_availability_pct": 92.65,
+      "estimated_after_availability_pct": 99.63,
+      "estimated_after_latency_ms": 37.399
+    },
+    {
+      "service_id": "SVC-006",
+      "before_nodes": [
+        "SAT-11",
+        "SAT-20",
+        "GS-01"
+      ],
+      "after_nodes": [
+        "SAT-11",
+        "SAT-21",
+        "GS-01"
+      ],
+      "before_availability_pct": 92.57,
+      "estimated_after_availability_pct": 99.54,
+      "estimated_after_latency_ms": 36.499
+    },
+    {
+      "service_id": "SVC-007",
+      "before_nodes": [
+        "SAT-18",
+        "SAT-20",
+        "GS-02"
+      ],
+      "after_nodes": [
+        "SAT-18",
+        "SAT-21",
+        "GS-02"
+      ],
+      "before_availability_pct": 92.52,
+      "estimated_after_availability_pct": 99.48,
+      "estimated_after_latency_ms": 36.959
+    },
+    {
+      "service_id": "SVC-008",
+      "before_nodes": [
+        "SAT-25",
+        "SAT-20",
+        "GS-01"
+      ],
+      "after_nodes": [
+        "SAT-25",
+        "SAT-21",
+        "GS-01"
+      ],
+      "before_availability_pct": 92.38,
+      "estimated_after_availability_pct": 99.33,
+      "estimated_after_latency_ms": 35.179
+    },
+    {
+      "service_id": "SVC-009",
+      "before_nodes": [
+        "SAT-27",
+        "SAT-20",
+        "GS-03"
+      ],
+      "after_nodes": [
+        "SAT-27",
+        "SAT-21",
+        "GS-03"
+      ],
+      "before_availability_pct": 92.53,
+      "estimated_after_availability_pct": 99.5,
+      "estimated_after_latency_ms": 39.619
+    },
+    {
+      "service_id": "SVC-010",
+      "before_nodes": [
+        "SAT-34",
+        "SAT-20",
+        "GS-02"
+      ],
+      "after_nodes": [
+        "SAT-34",
+        "SAT-21",
+        "GS-02"
+      ],
+      "before_availability_pct": 92.59,
+      "estimated_after_availability_pct": 99.56,
+      "estimated_after_latency_ms": 39.159
+    }
+  ],
+  "all_services_comparison": [
+    {
+      "service_id": "SVC-001",
+      "moved": true,
+      "before_availability_pct": 92.41,
+      "estimated_after_availability_pct": 99.37,
+      "estimated_after_latency_ms": 38.259,
+      "meets_availability_sla": true,
+      "meets_latency_sla": true,
+      "not_degraded_by_reroute": true
+    },
+    {
+      "service_id": "SVC-002",
+      "moved": true,
+      "before_availability_pct": 92.39,
+      "estimated_after_availability_pct": 99.34,
+      "estimated_after_latency_ms": 39.379,
+      "meets_availability_sla": true,
+      "meets_latency_sla": true,
+      "not_degraded_by_reroute": true
+    },
+    {
+      "service_id": "SVC-003",
+      "moved": true,
+      "before_availability_pct": 92.52,
+      "estimated_after_availability_pct": 99.48,
+      "estimated_after_latency_ms": 36.719,
+      "meets_availability_sla": true,
+      "meets_latency_sla": true,
+      "not_degraded_by_reroute": true
+    },
+    {
+      "service_id": "SVC-004",
+      "moved": true,
+      "before_availability_pct": 92.5,
+      "estimated_after_availability_pct": 99.47,
+      "estimated_after_latency_ms": 40.279,
+      "meets_availability_sla": true,
+      "meets_latency_sla": true,
+      "not_degraded_by_reroute": true
+    },
+    {
+      "service_id": "SVC-005",
+      "moved": true,
+      "before_availability_pct": 92.65,
+      "estimated_after_availability_pct": 99.63,
+      "estimated_after_latency_ms": 37.399,
+      "meets_availability_sla": true,
+      "meets_latency_sla": true,
+      "not_degraded_by_reroute": true
+    },
+    {
+      "service_id": "SVC-006",
+      "moved": true,
+      "before_availability_pct": 92.57,
+      "estimated_after_availability_pct": 99.54,
+      "estimated_after_latency_ms": 36.499,
+      "meets_availability_sla": true,
+      "meets_latency_sla": true,
+      "not_degraded_by_reroute": true
+    },
+    {
+      "service_id": "SVC-007",
+      "moved": true,
+      "before_availability_pct": 92.52,
+      "estimated_after_availability_pct": 99.48,
+      "estimated_after_latency_ms": 36.959,
+      "meets_availability_sla": true,
+      "meets_latency_sla": true,
+      "not_degraded_by_reroute": true
+    },
+    {
+      "service_id": "SVC-008",
+      "moved": true,
+      "before_availability_pct": 92.38,
+      "estimated_after_availability_pct": 99.33,
+      "estimated_after_latency_ms": 35.179,
+      "meets_availability_sla": true,
+      "meets_latency_sla": true,
+      "not_degraded_by_reroute": true
+    },
+    {
+      "service_id": "SVC-009",
+      "moved": true,
+      "before_availability_pct": 92.53,
+      "estimated_after_availability_pct": 99.5,
+      "estimated_after_latency_ms": 39.619,
+      "meets_availability_sla": true,
+      "meets_latency_sla": true,
+      "not_degraded_by_reroute": true
+    },
+    {
+      "service_id": "SVC-010",
+      "moved": true,
+      "before_availability_pct": 92.59,
+      "estimated_after_availability_pct": 99.56,
+      "estimated_after_latency_ms": 39.159,
+      "meets_availability_sla": true,
+      "meets_latency_sla": true,
+      "not_degraded_by_reroute": true
+    },
+    {
+      "service_id": "SVC-011",
+      "moved": false,
+      "before_availability_pct": 99.68,
+      "estimated_after_availability_pct": 99.68,
+      "estimated_after_latency_ms": 38.699,
+      "meets_availability_sla": true,
+      "meets_latency_sla": true,
+      "not_degraded_by_reroute": true
+    },
+    {
+      "service_id": "SVC-012",
+      "moved": false,
+      "before_availability_pct": 99.57,
+      "estimated_after_availability_pct": 99.57,
+      "estimated_after_latency_ms": 40.479,
+      "meets_availability_sla": true,
+      "meets_latency_sla": true,
+      "not_degraded_by_reroute": true
+    },
+    {
+      "service_id": "SVC-013",
+      "moved": false,
+      "before_availability_pct": 99.6,
+      "estimated_after_availability_pct": 99.6,
+      "estimated_after_latency_ms": 38.039,
+      "meets_availability_sla": true,
+      "meets_latency_sla": true,
+      "not_degraded_by_reroute": true
+    },
+    {
+      "service_id": "SVC-014",
+      "moved": false,
+      "before_availability_pct": 99.41,
+      "estimated_after_availability_pct": 99.41,
+      "estimated_after_latency_ms": 41.819,
+      "meets_availability_sla": true,
+      "meets_latency_sla": true,
+      "not_degraded_by_reroute": true
+    },
+    {
+      "service_id": "SVC-015",
+      "moved": false,
+      "before_availability_pct": 97.26,
+      "estimated_after_availability_pct": 97.26,
+      "estimated_after_latency_ms": 45.284,
+      "meets_availability_sla": true,
+      "meets_latency_sla": true,
+      "not_degraded_by_reroute": true
+    },
+    {
+      "service_id": "SVC-016",
+      "moved": false,
+      "before_availability_pct": 97.35,
+      "estimated_after_availability_pct": 97.35,
+      "estimated_after_latency_ms": 46.85,
+      "meets_availability_sla": true,
+      "meets_latency_sla": true,
+      "not_degraded_by_reroute": true
+    },
+    {
+      "service_id": "SVC-017",
+      "moved": false,
+      "before_availability_pct": 97.51,
+      "estimated_after_availability_pct": 97.51,
+      "estimated_after_latency_ms": 46.609,
+      "meets_availability_sla": true,
+      "meets_latency_sla": true,
+      "not_degraded_by_reroute": true
+    },
+    {
+      "service_id": "SVC-018",
+      "moved": false,
+      "before_availability_pct": 97.35,
+      "estimated_after_availability_pct": 97.35,
+      "estimated_after_latency_ms": 47.7,
+      "meets_availability_sla": true,
+      "meets_latency_sla": true,
+      "not_degraded_by_reroute": true
+    }
+  ],
+  "all_used_resource_peak_demand_utilization_pct": 102.2027,
+  "selected_relay_demand_utilization_pct": 82.1947,
+  "feasible_for_changed_services_with_15pct_headroom": true,
+  "preexisting_unmoved_risk": "SAT-24 and its four services remain degraded; this proposal only resolves the SAT-20 group."
+}

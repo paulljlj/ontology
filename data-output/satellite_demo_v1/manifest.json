@@ -1,0 +1,92 @@
+{
+  "dataset_id": "satellite_demo_v1",
+  "schema_version": "1.0",
+  "dataset_kind": "synthetic",
+  "generator_seed": 20260915,
+  "independent_cases": 8,
+  "satellites": 42,
+  "ground_stations": 3,
+  "directed_links": 126,
+  "services_per_case": 18,
+  "samples_per_case": 121,
+  "observation_csv_files": [
+    {
+      "file": "observed/cases.csv",
+      "rows": 8,
+      "sha256": "c5e5c780ff433048007fc8bbfefe48e75414dd4542813432e1e46e3c3475383f"
+    },
+    {
+      "file": "observed/nodes.csv",
+      "rows": 45,
+      "sha256": "64acd1983c686f440bdf4f57e4ecde96806e0cf443976b18169f9fbf0c9c4556"
+    },
+    {
+      "file": "observed/links.csv",
+      "rows": 126,
+      "sha256": "14a659db7b038e44c1387f197e411014063b66e362a5f07796ca18061db85565"
+    },
+    {
+      "file": "observed/services.csv",
+      "rows": 18,
+      "sha256": "004cbd3f9f4f1cc84c432dc28a98ade0c89c13044df8f0b852fe8563cac895f8"
+    },
+    {
+      "file": "observed/routes.csv",
+      "rows": 149,
+      "sha256": "4c12afd217786ff9171eacf124956ceb0a854db16817fb952a3f19c7524e0ae7"
+    },
+    {
+      "file": "observed/route_hops.csv",
+      "rows": 447,
+      "sha256": "172d4d2cdfb3998d4869b8a7636e458400d2e008330d384286b5e101986b75cc"
+    },
+    {
+      "file": "observed/traffic.csv",
+      "rows": 17424,
+      "sha256": "e3bac4bc2d35e449c8fa8758d8d23d635ac7a49ae63dc238848c0c19498f9918"
+    },
+    {
+      "file": "observed/node_metrics.csv",
+      "rows": 43560,
+      "sha256": "31c9a69fa991be7f1cfae0f3131a3f4ef5d11c6e66de86d37845059acf5a6284"
+    },
+    {
+      "file": "observed/link_metrics.csv",
+      "rows": 121968,
+      "sha256": "a211df7fa14f3ab2e64e93d54439b076dd1148ee717959b1fb3c739d7dcbba4d"
+    },
+    {
+      "file": "observed/service_metrics.csv",
+      "rows": 17424,
+      "sha256": "22f40dc8c72f1ef48d77b57f02ebf17ea8a7faf22c75f2bc060e97b07072c5d4"
+    },
+    {
+      "file": "observed/events.csv",
+      "rows": 37,
+      "sha256": "96139b68b5a723b3f6fcc153fd7f8492acf795767398a6c3c15f72ac39e5e771"
+    }
+  ],
+  "diagnosis_allowlist": [
+    "observed/cases.csv",
+    "observed/nodes.csv",
+    "observed/links.csv",
+    "observed/services.csv",
+    "observed/routes.csv",
+    "observed/route_hops.csv",
+    "observed/traffic.csv",
+    "observed/node_metrics.csv",
+    "observed/link_metrics.csv",
+    "observed/service_metrics.csv",
+    "observed/events.csv",
+    "demo_rules.json",
+    "data_dictionary.json"
+  ],
+  "evaluation_excluded_from_diagnosis": "evaluation/",
+  "observation_limitations": [
+    "not real telemetry",
+    "no real ephemeris or contact prediction",
+    "no calibrated space radiation physics",
+    "sampling is one minute; not suitable for subsecond faults",
+    "8 independent designed cases cannot establish real-world accuracy"
+  ]
+}

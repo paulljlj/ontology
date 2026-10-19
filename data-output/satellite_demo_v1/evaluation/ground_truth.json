@@ -1,0 +1,94 @@
+{
+  "evaluation_only": true,
+  "warning": "Never load this directory into the diagnosis context, prompt, candidate generation, or training features.",
+  "cases": [
+    {
+      "case_id": "CASE-001",
+      "planted_cause": "relay_capacity_overload",
+      "planted_object_id": "SAT-20",
+      "planted_object_type": "satellite",
+      "event_start": "2026-09-15T10:00:00.000+08:00",
+      "event_end_exclusive": "2026-09-15T10:30:00.000+08:00",
+      "expected_handling": "major_anomaly",
+      "notes": "十条共用中继的业务受影响；另有四条经SAT-24的轻微下降",
+      "truth_basis": "generator_injection_not_real_world_confirmed_incident"
+    },
+    {
+      "case_id": "CASE-002",
+      "planted_cause": "ground_station_power_degradation",
+      "planted_object_id": "GS-01",
+      "planted_object_type": "ground_station",
+      "event_start": "2026-09-15T10:00:00.000+08:00",
+      "event_end_exclusive": "2026-09-15T10:30:00.000+08:00",
+      "expected_handling": "major_anomaly",
+      "notes": "同站不同中继的业务下降；其他站对照正常",
+      "truth_basis": "generator_injection_not_real_world_confirmed_incident"
+    },
+    {
+      "case_id": "CASE-003",
+      "planted_cause": "single_link_capacity_and_error_degradation",
+      "planted_object_id": "L-SAT-20-GS-01",
+      "planted_object_type": "link",
+      "event_start": "2026-09-15T10:00:00.000+08:00",
+      "event_end_exclusive": "2026-09-15T10:30:00.000+08:00",
+      "expected_handling": "major_anomaly",
+      "notes": "仅经过该链路的业务明显下降",
+      "truth_basis": "generator_injection_not_real_world_confirmed_incident"
+    },
+    {
+      "case_id": "CASE-004",
+      "planted_cause": "injected_radiation_related_computer_upset",
+      "planted_object_id": "SAT-20",
+      "planted_object_type": "satellite",
+      "event_start": "2026-09-15T10:00:00.000+08:00",
+      "event_end_exclusive": "2026-09-15T10:30:00.000+08:00",
+      "expected_handling": "major_anomaly",
+      "notes": "环境计数、存储错误、重启共同出现；SAT-24环境计数高但业务正常",
+      "truth_basis": "generator_injection_not_real_world_confirmed_incident"
+    },
+    {
+      "case_id": "CASE-005",
+      "planted_cause": "gradual_subthreshold_load_degradation",
+      "planted_object_id": "SAT-24",
+      "planted_object_type": "satellite",
+      "event_start": "2026-09-15T10:00:00.000+08:00",
+      "event_end_exclusive": "2026-09-15T10:45:00.000+08:00",
+      "expected_handling": "watch",
+      "notes": "四条业务缓慢下降，始终不超过5个百分点",
+      "truth_basis": "generator_injection_not_real_world_confirmed_incident"
+    },
+    {
+      "case_id": "CASE-006",
+      "planted_cause": "planned_handover_transient",
+      "planted_object_id": "SAT-20",
+      "planted_object_type": "satellite",
+      "event_start": "2026-09-15T10:00:00.000+08:00",
+      "event_end_exclusive": "2026-09-15T10:02:00.000+08:00",
+      "expected_handling": "planned_change",
+      "notes": "两点瞬时下降后恢复，不满足连续三点重大异常规则",
+      "truth_basis": "generator_injection_not_real_world_confirmed_incident"
+    },
+    {
+      "case_id": "CASE-007",
+      "planted_cause": "environment_counter_without_service_fault",
+      "planted_object_id": "",
+      "planted_object_type": "",
+      "event_start": "2026-09-15T10:00:00.000+08:00",
+      "event_end_exclusive": "2026-09-15T10:30:00.000+08:00",
+      "expected_handling": "normal_service",
+      "notes": "环境计数升高但没有设备错误或明显业务下降",
+      "truth_basis": "generator_injection_not_real_world_confirmed_incident"
+    },
+    {
+      "case_id": "CASE-008",
+      "planted_cause": "relay_overload_with_missing_telemetry_and_blocked_alternatives",
+      "planted_object_id": "SAT-20",
+      "planted_object_type": "satellite",
+      "event_start": "2026-09-15T10:00:00.000+08:00",
+      "event_end_exclusive": "2026-09-15T10:30:00.000+08:00",
+      "expected_handling": "insufficient_cause_evidence",
+      "notes": "注入真因仍是过载，但实时证据不完整，应保留不确定性且不强行推荐改路",
+      "truth_basis": "generator_injection_not_real_world_confirmed_incident"
+    }
+  ]
+}

@@ -177,6 +177,42 @@ with onto:
     class ReportSpecification(Specification):
         pass
 
+    # Abstract domain roots stay non-instantiable: concrete classes below are
+    # disjoint, so marking an ancestor instantiable would make its children
+    # inconsistent with the global AllDisjoint declaration.
+    class NetworkEntity(EngineeringArtifact):
+        pass
+
+    class NetworkNode(NetworkEntity):
+        pass
+
+    class Satellite(NetworkNode):
+        pass
+
+    class GroundStation(NetworkNode):
+        pass
+
+    class CommunicationLink(NetworkEntity):
+        pass
+
+    class Route(NetworkEntity):
+        pass
+
+    class NetworkService(NetworkEntity):
+        pass
+
+    class MetricObservation(NetworkEntity):
+        pass
+
+    class AlarmEvent(NetworkEntity):
+        pass
+
+    class RouteProposal(NetworkEntity):
+        pass
+
+    class NetworkSnapshot(NetworkEntity):
+        pass
+
 
 Project.instantiable = [True]
 Project.comment = ["软件项目，是所有工程制品的根容器。"]
@@ -257,6 +293,24 @@ _EXECUTION_CLASS_DESCRIPTIONS = {
 for _execution_class, _description in _EXECUTION_CLASS_DESCRIPTIONS.items():
     _execution_class.instantiable = [True]
     _execution_class.comment = [_description]
+
+
+_NETWORK_CLASS_DESCRIPTIONS = {
+    Satellite: "通信网络中的卫星节点。",
+    GroundStation: "通信网络中的地面站节点。",
+    CommunicationLink: "具有方向、容量和可见时间窗的通信链路。",
+    Route: "某一有效时段内业务采用的有序通信路径。",
+    NetworkService: "具有源、允许出口和服务约束的网络业务。",
+    MetricObservation: "可追溯到采样时间及可知时间的指标观测。",
+    AlarmEvent: "关联网络对象的告警或变更事件。",
+    RouteProposal: "尚未下发设备的备选路径及约束验算结果。",
+    NetworkSnapshot: "按分析时刻及证据截止时间构建的网络快照。",
+}
+for _network_class, _description in _NETWORK_CLASS_DESCRIPTIONS.items():
+    _network_class.instantiable = [True]
+    _network_class.comment = [_description]
+NetworkEntity.comment = ["网络领域对象的抽象父类，不直接创建实例。"]
+NetworkNode.comment = ["卫星和地面站的抽象父类，不直接创建实例。"]
 
 
 AllDisjoint([EngineeringArtifact, Log, ControlledValue])
@@ -342,6 +396,50 @@ _FIELD_TYPES = {
     "build_number": (int, "integer"),
     "triggered_at": (str, "string"),
     "mock": (bool, "boolean"),
+    "external_id": (str, "string"),
+    "case_id": (str, "string"),
+    "provenance": (str, "string"),
+    "valid_from": (str, "string"),
+    "valid_to_exclusive": (str, "string"),
+    "available_at": (str, "string"),
+    "node_type": (str, "string"),
+    "constellation": (str, "string"),
+    "forwarding_capacity_mbps": (float, "number"),
+    "nominal_bus_voltage_v": (float, "number"),
+    "source_node_id": (str, "string"),
+    "target_node_id": (str, "string"),
+    "direction": (str, "string"),
+    "link_type": (str, "string"),
+    "nominal_capacity_mbps": (float, "number"),
+    "propagation_latency_ms": (float, "number"),
+    "visible_from": (str, "string"),
+    "visible_to_exclusive": (str, "string"),
+    "visibility_source": (str, "string"),
+    "service_id": (str, "string"),
+    "effective_from": (str, "string"),
+    "effective_to_exclusive": (str, "string"),
+    "hop_sequence": (str, "list"),
+    "source_satellite_id": (str, "string"),
+    "destination_ground_station_id": (str, "string"),
+    "allowed_egress_ids": (str, "list"),
+    "service_priority": (str, "string"),
+    "sla_latency_ms": (float, "number"),
+    "sla_availability_pct": (float, "number"),
+    "baseline_offered_mbps": (float, "number"),
+    "timestamp": (str, "string"),
+    "metric_name": (str, "string"),
+    "metric_value": (float, "number"),
+    "unit": (str, "string"),
+    "measurement_status": (str, "string"),
+    "event_kind": (str, "string"),
+    "event_code": (str, "string"),
+    "event_start": (str, "string"),
+    "event_end_exclusive": (str, "string"),
+    "snapshot_at": (str, "string"),
+    "as_of": (str, "string"),
+    "proposal_status": (str, "string"),
+    "projected_load_mbps": (float, "number"),
+    "projected_latency_ms": (float, "number"),
 }
 
 _FIELDS = {name: _define_data_field(name, value_type, kind) for name, (value_type, kind) in _FIELD_TYPES.items()}
@@ -474,6 +572,47 @@ _constrain_fields(FieldMapping, required={"title": str}, optional={"description"
 _constrain_fields(DataQualityRule, required={"title": str, "rule": str}, optional={"status": str, "severity": str})
 _constrain_fields(MetricDefinition, required={"title": str, "rule": str}, optional={"description": str, "summary": str})
 _constrain_fields(ReportSpecification, required={"title": str}, optional={"goal": str, "summary": str, "status": str})
+
+_constrain_fields(
+    NetworkEntity,
+    required={"title": str, "external_id": str},
+    optional={"status": str, "case_id": str, "description": str, "provenance": str, "available_at": str},
+)
+_constrain_fields(
+    NetworkNode,
+    required={"node_type": str},
+    optional={"constellation": str, "forwarding_capacity_mbps": float, "nominal_bus_voltage_v": float,
+              "valid_from": str, "valid_to_exclusive": str},
+)
+_constrain_fields(
+    CommunicationLink,
+    required={"source_node_id": str, "target_node_id": str, "direction": str,
+              "nominal_capacity_mbps": float, "propagation_latency_ms": float},
+    optional={"link_type": str, "visible_from": str, "visible_to_exclusive": str, "visibility_source": str},
+)
+_constrain_fields(
+    Route, required={},
+    optional={"service_id": str, "effective_from": str, "effective_to_exclusive": str, "hop_sequence": str},
+)
+_constrain_fields(
+    NetworkService, required={"source_satellite_id": str, "destination_ground_station_id": str},
+    optional={"allowed_egress_ids": str, "service_priority": str, "sla_latency_ms": float,
+              "sla_availability_pct": float, "baseline_offered_mbps": float},
+)
+_constrain_fields(
+    MetricObservation, required={"timestamp": str, "metric_name": str},
+    optional={"metric_value": float, "unit": str, "measurement_status": str},
+)
+_constrain_fields(
+    AlarmEvent, required={"event_kind": str, "event_start": str},
+    optional={"event_code": str, "event_end_exclusive": str, "severity": str},
+)
+_constrain_fields(
+    RouteProposal, required={"service_id": str},
+    optional={"hop_sequence": str, "proposal_status": str, "projected_load_mbps": float,
+              "projected_latency_ms": float, "summary": str},
+)
+_constrain_fields(NetworkSnapshot, required={"snapshot_at": str}, optional={"as_of": str})
 
 
 with onto:
@@ -623,6 +762,61 @@ with onto:
     CONTAINS_ARTIFACT.domain = [DeliveryBundle]
     CONTAINS_ARTIFACT.range = [Artifact]
     CONTAINS_ARTIFACT.comment = ["最终交付包包含产物"]
+
+    class ROUTE_USES_NODE(ObjectProperty):
+        pass
+
+    ROUTE_USES_NODE.domain = [Route]
+    ROUTE_USES_NODE.range = [NetworkNode]
+    ROUTE_USES_NODE.comment = ["有效路由经过网络节点；跳次在有序路径数据中保存。"]
+
+    class ROUTE_USES_LINK(ObjectProperty):
+        pass
+
+    ROUTE_USES_LINK.domain = [Route]
+    ROUTE_USES_LINK.range = [CommunicationLink]
+
+    class SERVICE_USES_ROUTE(ObjectProperty):
+        pass
+
+    SERVICE_USES_ROUTE.domain = [NetworkService]
+    SERVICE_USES_ROUTE.range = [Route]
+
+    class LINK_SOURCE(ObjectProperty, FunctionalProperty):
+        pass
+
+    LINK_SOURCE.domain = [CommunicationLink]
+    LINK_SOURCE.range = [NetworkNode]
+
+    class LINK_TARGET(ObjectProperty, FunctionalProperty):
+        pass
+
+    LINK_TARGET.domain = [CommunicationLink]
+    LINK_TARGET.range = [NetworkNode]
+
+    class OBSERVES_ENTITY(ObjectProperty, FunctionalProperty):
+        pass
+
+    OBSERVES_ENTITY.domain = [MetricObservation]
+    OBSERVES_ENTITY.range = [NetworkEntity]
+
+    class ALARM_ON_ENTITY(ObjectProperty):
+        pass
+
+    ALARM_ON_ENTITY.domain = [AlarmEvent]
+    ALARM_ON_ENTITY.range = [NetworkEntity]
+
+    class SNAPSHOT_CONTAINS(ObjectProperty):
+        pass
+
+    SNAPSHOT_CONTAINS.domain = [NetworkSnapshot]
+    SNAPSHOT_CONTAINS.range = [NetworkEntity]
+
+    class PROPOSAL_FOR_SERVICE(ObjectProperty, FunctionalProperty):
+        pass
+
+    PROPOSAL_FOR_SERVICE.domain = [RouteProposal]
+    PROPOSAL_FOR_SERVICE.range = [NetworkService]
 
 
 Plan.is_a.append(HAS_TASK.min(1, Task))

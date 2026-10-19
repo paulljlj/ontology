@@ -1,0 +1,743 @@
+{
+  "schema_version": "1.0",
+  "encoding": "UTF-8 with BOM for CSV",
+  "delimiter": ",",
+  "null_representation": "empty CSV field",
+  "join_scope": "time-varying tables require case_id; never mix timelines from independent cases",
+  "tables": [
+    {
+      "file": "observed/cases.csv",
+      "rows": 8,
+      "columns": 12,
+      "description": "案例时间范围和分析截止时刻；编号不包含故障类型",
+      "sha256": "c5e5c780ff433048007fc8bbfefe48e75414dd4542813432e1e46e3c3475383f",
+      "fields": [
+        {
+          "name": "case_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "dataset_kind",
+          "type": "string",
+          "description": "dataset_kind"
+        },
+        {
+          "name": "time_zone",
+          "type": "string",
+          "description": "time_zone"
+        },
+        {
+          "name": "sample_start",
+          "type": "string",
+          "description": "sample_start"
+        },
+        {
+          "name": "sample_end_exclusive",
+          "type": "string",
+          "description": "末端不包含；包含121个一分钟采样点"
+        },
+        {
+          "name": "sampling_seconds",
+          "type": "number_or_null",
+          "description": "sampling_seconds"
+        },
+        {
+          "name": "baseline_start",
+          "type": "string",
+          "description": "baseline_start"
+        },
+        {
+          "name": "baseline_end_exclusive",
+          "type": "string",
+          "description": "baseline_end_exclusive"
+        },
+        {
+          "name": "analysis_start",
+          "type": "string",
+          "description": "analysis_start"
+        },
+        {
+          "name": "analysis_end_exclusive",
+          "type": "string",
+          "description": "analysis_end_exclusive"
+        },
+        {
+          "name": "initial_diagnosis_cutoff",
+          "type": "string",
+          "description": "初次报告能看到的最晚证据时间；之后维护和恢复仅供复盘"
+        },
+        {
+          "name": "partition",
+          "type": "string",
+          "description": "partition"
+        }
+      ]
+    },
+    {
+      "file": "observed/nodes.csv",
+      "rows": 45,
+      "columns": 8,
+      "description": "卫星与地面站资产，额定转发容量",
+      "sha256": "64acd1983c686f440bdf4f57e4ecde96806e0cf443976b18169f9fbf0c9c4556",
+      "fields": [
+        {
+          "name": "node_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "node_type",
+          "type": "string",
+          "description": "node_type"
+        },
+        {
+          "name": "constellation",
+          "type": "string",
+          "description": "constellation"
+        },
+        {
+          "name": "forwarding_capacity_mbps",
+          "type": "number_or_null",
+          "description": "Mbps"
+        },
+        {
+          "name": "nominal_bus_voltage_v",
+          "type": "number_or_null",
+          "description": "nominal_bus_voltage_v"
+        },
+        {
+          "name": "valid_from",
+          "type": "string",
+          "description": "valid_from"
+        },
+        {
+          "name": "valid_to_exclusive",
+          "type": "string",
+          "description": "valid_to_exclusive"
+        },
+        {
+          "name": "provenance",
+          "type": "string",
+          "description": "provenance"
+        }
+      ]
+    },
+    {
+      "file": "observed/links.csv",
+      "rows": 126,
+      "columns": 10,
+      "description": "有向通信链路、额定带宽、传播时延及模拟可见窗口",
+      "sha256": "14a659db7b038e44c1387f197e411014063b66e362a5f07796ca18061db85565",
+      "fields": [
+        {
+          "name": "link_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "source_node_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "target_node_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "direction",
+          "type": "string",
+          "description": "direction"
+        },
+        {
+          "name": "link_type",
+          "type": "string",
+          "description": "link_type"
+        },
+        {
+          "name": "nominal_capacity_mbps",
+          "type": "number_or_null",
+          "description": "Mbps"
+        },
+        {
+          "name": "propagation_latency_ms",
+          "type": "number_or_null",
+          "description": "propagation_latency_ms"
+        },
+        {
+          "name": "visible_from",
+          "type": "string",
+          "description": "visible_from"
+        },
+        {
+          "name": "visible_to_exclusive",
+          "type": "string",
+          "description": "visible_to_exclusive"
+        },
+        {
+          "name": "visibility_source",
+          "type": "string",
+          "description": "visibility_source"
+        }
+      ]
+    },
+    {
+      "file": "observed/services.csv",
+      "rows": 18,
+      "columns": 9,
+      "description": "源星至固定地面站的端到端服务，含SLA和探测口径",
+      "sha256": "004cbd3f9f4f1cc84c432dc28a98ade0c89c13044df8f0b852fe8563cac895f8",
+      "fields": [
+        {
+          "name": "service_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "source_satellite_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "destination_ground_station_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "allowed_egress_ids",
+          "type": "string",
+          "description": "允许的业务出口地面站，以分号分隔；本版每条服务固定一个出口，不能擅自换站"
+        },
+        {
+          "name": "priority",
+          "type": "string",
+          "description": "priority"
+        },
+        {
+          "name": "sla_latency_ms",
+          "type": "number_or_null",
+          "description": "sla_latency_ms"
+        },
+        {
+          "name": "sla_availability_pct",
+          "type": "number_or_null",
+          "description": "百分数0至100（请求利用率可大于100）"
+        },
+        {
+          "name": "probe_attempts_per_minute",
+          "type": "number_or_null",
+          "description": "probe_attempts_per_minute"
+        },
+        {
+          "name": "baseline_offered_mbps",
+          "type": "number_or_null",
+          "description": "Mbps"
+        }
+      ]
+    },
+    {
+      "file": "observed/routes.csv",
+      "rows": 149,
+      "columns": 8,
+      "description": "分案例、分服务、带生效时间的路由版本",
+      "sha256": "4c12afd217786ff9171eacf124956ceb0a854db16817fb952a3f19c7524e0ae7",
+      "fields": [
+        {
+          "name": "case_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "route_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "service_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "effective_from",
+          "type": "string",
+          "description": "effective_from"
+        },
+        {
+          "name": "effective_to_exclusive",
+          "type": "string",
+          "description": "effective_to_exclusive"
+        },
+        {
+          "name": "available_at",
+          "type": "string",
+          "description": "证据可获得时间；初始诊断必须按此过滤，不能提前读取"
+        },
+        {
+          "name": "route_status",
+          "type": "string",
+          "description": "route_status"
+        },
+        {
+          "name": "change_record_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        }
+      ]
+    },
+    {
+      "file": "observed/route_hops.csv",
+      "rows": 447,
+      "columns": 5,
+      "description": "路由每一跳的节点和下一条有向链路",
+      "sha256": "172d4d2cdfb3998d4869b8a7636e458400d2e008330d384286b5e101986b75cc",
+      "fields": [
+        {
+          "name": "case_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "route_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "hop_index",
+          "type": "number_or_null",
+          "description": "hop_index"
+        },
+        {
+          "name": "node_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "outgoing_link_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        }
+      ]
+    },
+    {
+      "file": "observed/traffic.csv",
+      "rows": 17424,
+      "columns": 7,
+      "description": "每分钟业务请求流量；缺失为留空",
+      "sha256": "e3bac4bc2d35e449c8fa8758d8d23d635ac7a49ae63dc238848c0c19498f9918",
+      "fields": [
+        {
+          "name": "case_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "timestamp",
+          "type": "string",
+          "description": "采样区间开始时间；每条样本覆盖其后60秒"
+        },
+        {
+          "name": "available_at",
+          "type": "string",
+          "description": "证据可获得时间；初始诊断必须按此过滤，不能提前读取"
+        },
+        {
+          "name": "service_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "route_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "offered_mbps",
+          "type": "number_or_null",
+          "description": "源端请求流量；Mbps；并非保证已转发的流量"
+        },
+        {
+          "name": "measurement_status",
+          "type": "string",
+          "description": "observed或missing；null/空字段表示缺失，不能填0或自动认定正常"
+        }
+      ]
+    },
+    {
+      "file": "observed/node_metrics.csv",
+      "rows": 43560,
+      "columns": 21,
+      "description": "节点转发负载、队列、电压、环境计数和设备错误",
+      "sha256": "31c9a69fa991be7f1cfae0f3131a3f4ef5d11c6e66de86d37845059acf5a6284",
+      "fields": [
+        {
+          "name": "sample_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "case_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "timestamp",
+          "type": "string",
+          "description": "采样区间开始时间；每条样本覆盖其后60秒"
+        },
+        {
+          "name": "available_at",
+          "type": "string",
+          "description": "证据可获得时间；初始诊断必须按此过滤，不能提前读取"
+        },
+        {
+          "name": "node_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "node_type",
+          "type": "string",
+          "description": "node_type"
+        },
+        {
+          "name": "effective_capacity_mbps",
+          "type": "number_or_null",
+          "description": "当前有效容量；缺失留空，链路DOWN时为0"
+        },
+        {
+          "name": "ingress_mbps",
+          "type": "number_or_null",
+          "description": "资源在该采样区间收到的流量，已扣除上游丢弃，不是所有源请求量重复相加"
+        },
+        {
+          "name": "forwarded_mbps",
+          "type": "number_or_null",
+          "description": "Mbps"
+        },
+        {
+          "name": "discarded_mbps",
+          "type": "number_or_null",
+          "description": "该资源收到但未转发/发送的流量；包含容量不足或设备/链路错误造成的模拟损失"
+        },
+        {
+          "name": "demand_utilization_pct",
+          "type": "number_or_null",
+          "description": "到达请求流量/有效容量×100，可超过100，表示超额请求"
+        },
+        {
+          "name": "forwarding_utilization_pct",
+          "type": "number_or_null",
+          "description": "实际转发或发送流量/有效容量×100，不超过100"
+        },
+        {
+          "name": "queue_depth_mb",
+          "type": "number_or_null",
+          "description": "采样内的简化瞬时积压代理值，非精确跨分钟队列积分"
+        },
+        {
+          "name": "cpu_utilization_pct",
+          "type": "number_or_null",
+          "description": "百分数0至100（请求利用率可大于100）"
+        },
+        {
+          "name": "temperature_c",
+          "type": "number_or_null",
+          "description": "temperature_c"
+        },
+        {
+          "name": "bus_voltage_v",
+          "type": "number_or_null",
+          "description": "bus_voltage_v"
+        },
+        {
+          "name": "radiation_proxy_counts_per_min",
+          "type": "number_or_null",
+          "description": "虚构环境计数器的每分钟计数；不是实测辐射通量、剂量或行业危险阈值"
+        },
+        {
+          "name": "seu_events_per_min",
+          "type": "number_or_null",
+          "description": "模拟单粒子翻转类设备事件计数；用于联合证据，不单独证明现实故障原因"
+        },
+        {
+          "name": "ecc_corrected_events_per_min",
+          "type": "number_or_null",
+          "description": "每分钟已纠正存储错误事件，不是累计计数"
+        },
+        {
+          "name": "reset_events_per_min",
+          "type": "number_or_null",
+          "description": "每分钟重启事件数量"
+        },
+        {
+          "name": "measurement_status",
+          "type": "string",
+          "description": "observed或missing；null/空字段表示缺失，不能填0或自动认定正常"
+        }
+      ]
+    },
+    {
+      "file": "observed/link_metrics.csv",
+      "rows": 121968,
+      "columns": 16,
+      "description": "链路状态、带宽、负载、SNR、误码率",
+      "sha256": "a211df7fa14f3ab2e64e93d54439b076dd1148ee717959b1fb3c739d7dcbba4d",
+      "fields": [
+        {
+          "name": "sample_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "case_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "timestamp",
+          "type": "string",
+          "description": "采样区间开始时间；每条样本覆盖其后60秒"
+        },
+        {
+          "name": "available_at",
+          "type": "string",
+          "description": "证据可获得时间；初始诊断必须按此过滤，不能提前读取"
+        },
+        {
+          "name": "link_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "operational_state",
+          "type": "string",
+          "description": "UP或DOWN；与遥测是否缺失分开"
+        },
+        {
+          "name": "effective_capacity_mbps",
+          "type": "number_or_null",
+          "description": "当前有效容量；缺失留空，链路DOWN时为0"
+        },
+        {
+          "name": "ingress_mbps",
+          "type": "number_or_null",
+          "description": "资源在该采样区间收到的流量，已扣除上游丢弃，不是所有源请求量重复相加"
+        },
+        {
+          "name": "transmitted_mbps",
+          "type": "number_or_null",
+          "description": "Mbps"
+        },
+        {
+          "name": "discarded_mbps",
+          "type": "number_or_null",
+          "description": "该资源收到但未转发/发送的流量；包含容量不足或设备/链路错误造成的模拟损失"
+        },
+        {
+          "name": "demand_utilization_pct",
+          "type": "number_or_null",
+          "description": "到达请求流量/有效容量×100，可超过100，表示超额请求"
+        },
+        {
+          "name": "forwarding_utilization_pct",
+          "type": "number_or_null",
+          "description": "实际转发或发送流量/有效容量×100，不超过100"
+        },
+        {
+          "name": "snr_db",
+          "type": "number_or_null",
+          "description": "模拟接收信噪比，单位dB；DOWN时0只是本数据约定，不表示物理测量"
+        },
+        {
+          "name": "bit_error_rate",
+          "type": "number_or_null",
+          "description": "模拟比特误码比例；SNR与BER是场景辅助观测，不使用真实调制解调信道模型换算"
+        },
+        {
+          "name": "mean_latency_ms",
+          "type": "number_or_null",
+          "description": "简化传播、处理及负载排队模型的平均值；不是轨道物理仿真结果"
+        },
+        {
+          "name": "measurement_status",
+          "type": "string",
+          "description": "observed或missing；null/空字段表示缺失，不能填0或自动认定正常"
+        }
+      ]
+    },
+    {
+      "file": "observed/service_metrics.csv",
+      "rows": 17424,
+      "columns": 15,
+      "description": "端到端服务探测、可用度、丢包、交付流量、时延",
+      "sha256": "22f40dc8c72f1ef48d77b57f02ebf17ea8a7faf22c75f2bc060e97b07072c5d4",
+      "fields": [
+        {
+          "name": "sample_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "case_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "timestamp",
+          "type": "string",
+          "description": "采样区间开始时间；每条样本覆盖其后60秒"
+        },
+        {
+          "name": "available_at",
+          "type": "string",
+          "description": "证据可获得时间；初始诊断必须按此过滤，不能提前读取"
+        },
+        {
+          "name": "service_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "source_satellite_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "route_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "probe_attempts",
+          "type": "number_or_null",
+          "description": "每分钟10000次抽象服务探测，不代表10000台设备，也不是接口包计数"
+        },
+        {
+          "name": "probe_successes",
+          "type": "number_or_null",
+          "description": "成功完成的服务探测次数，包含固定基线误差和路径传输影响"
+        },
+        {
+          "name": "availability_pct",
+          "type": "number_or_null",
+          "description": "0至100；100×成功探测数/有效探测总数，属于网络服务可用度，不是诊断置信度"
+        },
+        {
+          "name": "delivered_mbps",
+          "type": "number_or_null",
+          "description": "最终抵达目标地面站的业务流量；Mbps"
+        },
+        {
+          "name": "packet_loss_pct",
+          "type": "number_or_null",
+          "description": "100×(1-交付流量/源端请求流量)，不等同于业务探测失败率"
+        },
+        {
+          "name": "mean_latency_ms",
+          "type": "number_or_null",
+          "description": "简化传播、处理及负载排队模型的平均值；不是轨道物理仿真结果"
+        },
+        {
+          "name": "throughput_measurement_status",
+          "type": "string",
+          "description": "交付流量及派生丢包率是否有观测；与独立服务探测的measurement_status分开"
+        },
+        {
+          "name": "measurement_status",
+          "type": "string",
+          "description": "observed或missing；null/空字段表示缺失，不能填0或自动认定正常"
+        }
+      ]
+    },
+    {
+      "file": "observed/events.csv",
+      "rows": 37,
+      "columns": 16,
+      "description": "告警、计划切换、维护和数据质量记录；含证据可获得时间",
+      "sha256": "96139b68b5a723b3f6fcc153fd7f8492acf795767398a6c3c15f72ac39e5e771",
+      "fields": [
+        {
+          "name": "event_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "related_event_id",
+          "type": "string",
+          "description": "状态更新所对应的原始事件ID；需按available_at选取当时最新状态"
+        },
+        {
+          "name": "case_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "object_type",
+          "type": "string",
+          "description": "object_type"
+        },
+        {
+          "name": "object_id",
+          "type": "string",
+          "description": "关联标识；必须按case_id和具体标识联接"
+        },
+        {
+          "name": "event_kind",
+          "type": "string",
+          "description": "event_kind"
+        },
+        {
+          "name": "event_code",
+          "type": "string",
+          "description": "event_code"
+        },
+        {
+          "name": "severity",
+          "type": "string",
+          "description": "severity"
+        },
+        {
+          "name": "event_start",
+          "type": "string",
+          "description": "event_start"
+        },
+        {
+          "name": "event_end_exclusive",
+          "type": "string",
+          "description": "事件结束时间；用于区间判断，不是该结束信息已提前获知的时间，初诊只可读取available_at前已知内容"
+        },
+        {
+          "name": "planned_end",
+          "type": "string",
+          "description": "提前发布的计划结束时间，不等于实际恢复时间"
+        },
+        {
+          "name": "event_status",
+          "type": "string",
+          "description": "event_status"
+        },
+        {
+          "name": "available_at",
+          "type": "string",
+          "description": "证据可获得时间；初始诊断必须按此过滤，不能提前读取"
+        },
+        {
+          "name": "observed_value",
+          "type": "number_or_null",
+          "description": "observed_value"
+        },
+        {
+          "name": "unit",
+          "type": "string",
+          "description": "unit"
+        },
+        {
+          "name": "details",
+          "type": "string",
+          "description": "details"
+        }
+      ]
+    }
+  ]
+}

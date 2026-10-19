@@ -1,0 +1,3 @@
+# The manifest hashes the exact UTF-8 BOM + CRLF bytes of these fixtures.
+# Do not normalize them on add/checkout on a different OS.
+data-output/satellite_demo_v1/observed/*.csv -text whitespace=cr-at-eol

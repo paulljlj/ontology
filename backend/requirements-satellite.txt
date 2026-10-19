@@ -1,0 +1,4 @@
+-r requirements.txt
+jsonschema==4.26.0
+mcp==1.29.0
+pydantic==2.12.5

@@ -14,3 +14,8 @@ htmlcov/
 .wpp_backup/
 _rename_backup/
 backend/report_artifacts/
+.satellite-runtime/
+.satellite-data-build/
+data-output/*.zip
+.chart-data-*/
+.ppt-research-build/

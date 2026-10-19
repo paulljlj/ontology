@@ -1,0 +1,56 @@
+{
+  "status": "passed",
+  "checks": [
+    {
+      "check": "unique primary keys",
+      "result": "passed"
+    },
+    {
+      "check": "route continuity endpoints and validity",
+      "result": "passed"
+    },
+    {
+      "check": "capacity and rate conservation for observed telemetry",
+      "result": "passed"
+    },
+    {
+      "check": "service numerator denominator bounds and timestamp availability",
+      "result": "passed"
+    },
+    {
+      "check": "known synthetic case characteristics",
+      "result": "passed"
+    },
+    {
+      "check": "missing telemetry remains null not zero",
+      "result": "passed"
+    },
+    {
+      "check": "event state updates do not leak future recovery",
+      "result": "passed"
+    },
+    {
+      "check": "group rerouting conserves endpoint and respects changed resource headroom",
+      "result": "passed"
+    },
+    {
+      "check": "no feasible alternative and ground endpoint constraint represented",
+      "result": "passed"
+    }
+  ],
+  "totals": {
+    "observed/cases.csv": 8,
+    "observed/nodes.csv": 45,
+    "observed/links.csv": 126,
+    "observed/services.csv": 18,
+    "observed/routes.csv": 149,
+    "observed/route_hops.csv": 447,
+    "observed/traffic.csv": 17424,
+    "observed/node_metrics.csv": 43560,
+    "observed/link_metrics.csv": 121968,
+    "observed/service_metrics.csv": 17424,
+    "observed/events.csv": 37
+  },
+  "total_csv_data_rows": 201206,
+  "scope": "data consistency and planted scenario checks, not diagnostic model accuracy"
+}
