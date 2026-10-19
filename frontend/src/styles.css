@@ -1,16 +1,16 @@
 :root {
-  color: #18201f;
-  background: #eef1ee;
+  color: #182230;
+  background: #f2f4f7;
   font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
-  --ink: #18201f;
-  --muted: #64706a;
-  --line: #cbd3cd;
-  --paper: #fbfcf8;
-  --panel: #f6f7f2;
-  --green: #2f6b4f;
+  --ink: #182230;
+  --muted: #667085;
+  --line: #d5dae3;
+  --paper: #ffffff;
+  --panel: #f7f8fa;
+  --green: #2f5d7c;
   --red: #b7494b;
-  --gold: #b48938;
-  --blue: #366f9f;
+  --gold: #a66d24;
+  --blue: #2f5d7c;
 }
 
 * {
@@ -21,7 +21,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #eef1ee;
+  background: #f2f4f7;
 }
 
 button,
@@ -2580,5 +2580,422 @@ pre {
 
   .resultNode button {
     justify-content: center;
+  }
+}
+
+/* Professional workbench theme: neutral surfaces, restrained accents. */
+.goalShell {
+  color: #182230;
+  background: #f2f4f7;
+}
+
+.goalHeader {
+  border-bottom-color: #d7dce4;
+}
+
+.brandMark {
+  border-radius: 5px;
+  background: #243b53;
+  color: #ffffff;
+}
+
+.goalBrand strong {
+  color: #182230;
+  font-weight: 700;
+}
+
+.goalBrand span,
+.goalIntro p,
+.runtimeSummary > div:first-child span:last-child,
+.flowTaskBody > p,
+.goalNode p,
+.resultNode p {
+  color: #667085;
+}
+
+.runHistory,
+.quietButton,
+.capabilityRail {
+  border-color: #d5dae3;
+  background: #ffffff;
+}
+
+.runHistory,
+.runHistory select {
+  color: #344054;
+}
+
+.quietButton:hover {
+  border-color: #aeb7c5;
+  background: #f7f8fa;
+}
+
+.eyebrow {
+  color: #315b78;
+}
+
+.goalIntro h1 {
+  color: #162334;
+  font-weight: 720;
+  letter-spacing: -0.018em;
+}
+
+.capabilityRail {
+  border-radius: 5px;
+}
+
+.capabilityRail > div {
+  border-left-color: #e1e5eb;
+  padding: 11px 14px;
+}
+
+.capabilityRail small {
+  color: #98a2b3;
+}
+
+.capabilityRail span {
+  color: #344054;
+}
+
+.goalComposer {
+  border-color: #aeb8c5;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.goalComposer:focus-within {
+  border-color: #426b88;
+  box-shadow: 0 0 0 3px rgba(47, 93, 124, 0.1);
+}
+
+.composerIcon {
+  border-radius: 4px;
+  background: #e8edf2;
+  color: #315b78;
+}
+
+.goalComposer label > span,
+.goalComposer textarea {
+  color: #263445;
+}
+
+.executeButton,
+.resultNode button {
+  border-color: #294e68;
+  border-radius: 5px;
+  background: #294e68;
+}
+
+.executeButton:hover:not(:disabled),
+.resultNode button:hover:not(:disabled) {
+  border-color: #203f56;
+  background: #203f56;
+}
+
+.runtimeSummary {
+  border-color: #d5dae3;
+  border-radius: 6px 6px 0 0;
+}
+
+.runtimeSummary b {
+  color: #315b78;
+}
+
+.globalProgress {
+  border-radius: 2px;
+  background: #e4e7ec;
+}
+
+.globalProgress span {
+  border-radius: 2px;
+  background: #3c6987;
+}
+
+.runtimeGrid {
+  border-color: #d5dae3;
+  border-radius: 0 0 6px 6px;
+  background: #ffffff;
+}
+
+.processPanel {
+  border-right-color: #dfe3e9;
+  border-bottom-color: #dfe3e9;
+  background: #f7f8fa;
+}
+
+.ontologyPanel {
+  background: #ffffff;
+}
+
+.panelHeading h2 {
+  color: #263445;
+  font-weight: 700;
+}
+
+.panelHeading > span {
+  border: 1px solid #dfe3e9;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #667085;
+}
+
+.goalNode,
+.flowTask,
+.resultNode {
+  border-color: #d5dae3;
+  border-radius: 5px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
+}
+
+.goalNode {
+  border-color: #aeb8c5;
+  border-left: 3px solid #315b78;
+  background: #ffffff;
+}
+
+.flowIndex {
+  border-radius: 4px;
+  background: #edf0f4;
+  color: #526171;
+}
+
+.flowTask {
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.flowTask:hover,
+.flowTask.selected {
+  border-color: #6f879a;
+  box-shadow: 0 0 0 2px rgba(47, 93, 124, 0.07);
+}
+
+.flowTask.succeeded .flowIndex {
+  background: #e9f1ec;
+  color: #2e6a4f;
+}
+
+.flowConnector,
+.resultNode::before {
+  background: #bdc5cf;
+}
+
+.flowConnector::after {
+  border-color: #98a2b3;
+}
+
+.executionBinding b,
+.executionBinding code,
+.executionBinding span {
+  border: 1px solid #e0e4ea;
+  border-radius: 3px;
+  background: #f4f5f7;
+  color: #475467;
+}
+
+.executionBinding b {
+  border-color: #ccd8e0;
+  background: #edf2f5;
+  color: #315b78;
+}
+
+.ontologyDecision {
+  border-left-color: #526f86;
+  background: #f3f5f7;
+  color: #475467;
+}
+
+.flowOutputs {
+  color: #2e6a4f;
+}
+
+.resultNode {
+  border-color: #aeb8c5;
+  border-left: 3px solid #2e6a4f;
+  background: #ffffff;
+}
+
+.resultNodeIcon {
+  border-radius: 4px;
+  background: #2e6a4f;
+}
+
+.runtimeTopology,
+.topologyScroller {
+  border-color: #d9dee6;
+  border-radius: 5px;
+  background: #f7f8fa;
+}
+
+.topologyFilters label,
+.topologyFilters select {
+  color: #475467;
+}
+
+.zoomControls {
+  border-color: #d5dae3;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
+}
+
+.zoomControls button:hover {
+  background: #eef1f4;
+}
+
+.graphLegend .groupKind {
+  border-radius: 4px;
+  background: #ffffff;
+}
+
+.reasoningConsole {
+  border-color: #d9dee6;
+  border-radius: 5px;
+  background: #ffffff;
+}
+
+.reasoningTitle span,
+.reasoningConsole dt {
+  color: #667085;
+}
+
+.reasoningTitle > b {
+  border: 1px solid #d5dde4;
+  border-radius: 4px;
+  background: #edf1f4;
+  color: #315b78;
+}
+
+.reasoningPath span,
+.reasoningPath span.matched {
+  border-color: #d9dee6;
+  border-radius: 3px;
+  background: #f7f8fa;
+  color: #475467;
+}
+
+.reasoningPath span.matched {
+  border-color: #b8c7d2;
+  background: #edf2f5;
+  color: #315b78;
+}
+
+.graphWaiting {
+  border-color: #cbd2dc;
+  border-radius: 5px;
+  background: #f7f8fa;
+  color: #667085;
+}
+
+.resultOverlay {
+  background: rgba(16, 24, 40, 0.62);
+  backdrop-filter: blur(2px);
+}
+
+.resultDialog {
+  border-color: #d0d5dd;
+  border-radius: 7px;
+  background: #f7f8fa;
+  box-shadow: 0 24px 64px rgba(16, 24, 40, 0.25);
+}
+
+.resultAnswer {
+  border-color: #d5dae3;
+  border-left-color: #315b78;
+  border-radius: 5px;
+}
+
+.resultAnswer p {
+  color: #263445;
+}
+
+.resultNarrative section,
+.resultPath,
+.resultFiles,
+.resultVisuals,
+.resultRecommendations {
+  border-color: #d9dee6;
+  border-radius: 5px;
+}
+
+.sectionLabel {
+  color: #344054;
+}
+
+.resultPath span {
+  border: 1px solid #dfe3e9;
+  border-radius: 3px;
+  background: #f4f5f7;
+  color: #475467;
+}
+
+.resultStats > div,
+.resultStats > div.tone-positive {
+  border-top-color: #315b78;
+  background: #eef2f5;
+}
+
+.resultStats > div.tone-warning {
+  border-top-color: #a66d24;
+  background: #faf4e9;
+}
+
+.resultChart {
+  border-color: #dfe3e9;
+  border-radius: 4px;
+  background: #f9fafb;
+}
+
+.resultChartRow > div {
+  background: repeating-linear-gradient(90deg, #e9edf2 0, #e9edf2 24%, #f7f8fa 24%, #f7f8fa 25%);
+}
+
+.resultChartRow i {
+  background: #3c6987;
+}
+
+.resultFileGrid a {
+  border-color: #d9dee6;
+  border-radius: 5px;
+  color: #263445;
+}
+
+.resultFileGrid a:hover {
+  border-color: #8297a8;
+  background: #f7f8fa;
+}
+
+.fileIcon {
+  border-radius: 4px;
+  background: #e8edf2;
+  color: #315b78;
+}
+
+@media (max-width: 700px) {
+  .goalShell {
+    padding: 12px;
+  }
+
+  .goalHeader {
+    gap: 12px;
+    padding-bottom: 14px;
+  }
+
+  .goalIntro {
+    gap: 18px;
+  }
+
+  .goalIntro h1 {
+    font-size: 27px;
+  }
+
+  .goalComposer,
+  .processPanel,
+  .ontologyPanel {
+    padding: 12px;
+  }
+
+  .runtimeSummary {
+    margin-top: 14px;
   }
 }

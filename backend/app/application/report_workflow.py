@@ -453,18 +453,21 @@ def create_workflow_run(
     contract = compile_result_contract(requirement, [item["name"] for item in input_files])
     task_plan = build_task_plan(contract)
     with session_scope() as session:
-        session.add(
-            WorkflowRunORM(
-                id=run_id,
-                workflow_type="data_report",
-                title=title.strip() or "数据整理与报表生成",
-                requirement=requirement.strip(),
-                status="planning",
-                result_contract=contract,
-                input_files=input_files,
-                summary={"progress": 0, "task_count": len(task_plan)},
-            )
+        run = WorkflowRunORM(
+            id=run_id,
+            workflow_type="data_report",
+            title=title.strip() or "数据整理与报表生成",
+            requirement=requirement.strip(),
+            status="planning",
+            result_contract=contract,
+            input_files=input_files,
+            summary={"progress": 0, "task_count": len(task_plan)},
         )
+        session.add(run)
+        # ExecutionTaskORM only stores run_id and does not declare an ORM
+        # relationship to WorkflowRunORM. Flush the parent explicitly so
+        # PostgreSQL cannot insert child tasks before the referenced run.
+        session.flush()
         for index, (key, task_title, description, skill_name, capabilities, bindings) in enumerate(
             task_plan, start=1
         ):
