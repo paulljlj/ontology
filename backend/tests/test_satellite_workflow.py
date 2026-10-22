@@ -170,6 +170,16 @@ def test_integrated_diagnosis_drives_route_plan_and_keeps_raw_audit(harness):
     report = run["summary"]["satellite_report"]
     assert report["provenance"]["input_source"] == "integrated_diagnosis"
     assert report["provenance"]["avoid_objects"] == ["SAT-20"]
+    assert report["overview"]["indicator_summary"]["major_count"] == 10
+    assert report["overview"]["indicator_summary"]["watch_count"] == 4
+    assert report["overview"]["indicator_summary"]["sample_completeness_pct"] == 100
+    assert report["overview"]["indicator_summary"]["major_average_drop_pp"] > 5
+    assert len(report["overview"]["service_comparison"]) == 18
+    assert report["overview"]["indicator_policy"]["major_alert"]["consecutive_valid_samples"] == 3
+    rules = report["rule_execution"]
+    assert next(item for item in rules["domain_rules"] if item["rule_id"] == "NET-SNAPSHOT")["status"] == "passed"
+    assert all(item["status"] == "passed" for item in rules["diagnostic_rules"])
+    assert [item["status"] for item in rules["routing_rules"]] == ["passed", "passed", "model_checked_only"]
     assert report["route_options"]["status"] == "feasible"
     assert [item["object_id"] for item in report["causes"]["items"] if item["status"] == "supported"] == ["SAT-20"]
     assert len(report["watch_items"]["items"]) == 4
@@ -180,6 +190,8 @@ def test_integrated_diagnosis_drives_route_plan_and_keeps_raw_audit(harness):
     raw = json.loads((harness.output / run["id"] / "satellite-diagnosis-raw.json").read_text(encoding="utf-8"))
     assert raw["schema_version"] == "1.1" and raw["graph_backend"] == "local_test_only"
     assert raw["conclusion_and_missing_evidence"]["priority_object"] == "SAT-20"
+    html = (harness.output / run["id"] / "satellite-report.html").read_text(encoding="utf-8")
+    assert "基线可用度" in html and "本次规则执行情况" in html
 
 
 @pytest.mark.parametrize("invalid", ["wrong_object_type", "later_analysis_window"])

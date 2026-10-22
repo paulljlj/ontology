@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 import hashlib
+from statistics import mean
 from typing import Any, Iterable
 
 from app.domain.satellite_schemas import DiagnosisInput
@@ -75,6 +76,53 @@ def _compact_watch(raw: dict[str, Any]) -> list[dict[str, Any]]:
                 "note": "关注项不是已确认故障；计划切换和缺测会单独保留。",
             })
     return result
+
+
+def _compact_service_comparison(statuses: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Keep the exact comparison values needed by the report, without the raw minute series."""
+    labels = {
+        "major": "重大异常", "watch": "轻微异常", "watch_pending_support": "待证轻微异常",
+        "trend_observing": "下降观察", "planned_transition": "计划切换", "normal": "正常",
+        "unobserved": "未观测",
+    }
+    rows = [{
+        "service_id": item.get("service_id"),
+        "classification": item.get("classification"),
+        "classification_label": labels.get(str(item.get("classification")), str(item.get("classification"))),
+        "baseline_availability_pct": item.get("baseline_availability_pct"),
+        "analysis_mean_availability_pct": item.get("analysis_mean_availability_pct"),
+        "mean_drop_pp": item.get("mean_drop_pp"),
+        "peak_drop_pp": item.get("peak_drop_pp"),
+        "first_decline_at": item.get("first_decline_at"),
+        "longest_contiguous_minutes": item.get("longest_contiguous_minutes"),
+        "valid_minutes": item.get("valid_minutes"),
+        "missing_minutes": item.get("missing_minutes"),
+    } for item in statuses]
+    counts: dict[str, int] = {}
+    for row in rows:
+        key = str(row["classification"])
+        counts[key] = counts.get(key, 0) + 1
+    major = [row for row in rows if row["classification"] == "major"]
+    def average(field: str) -> float | None:
+        values = [float(row[field]) for row in major if row.get(field) is not None]
+        return round(mean(values), 4) if values else None
+    valid_minutes = sum(int(row.get("valid_minutes") or 0) for row in rows)
+    expected_minutes = valid_minutes + sum(int(row.get("missing_minutes") or 0) for row in rows)
+    summary = {
+        "service_count": len(rows),
+        "classification_counts": counts,
+        "major_count": len(major),
+        "watch_count": counts.get("watch", 0) + counts.get("watch_pending_support", 0),
+        "normal_count": counts.get("normal", 0),
+        "unobserved_count": counts.get("unobserved", 0),
+        "major_average_baseline_availability_pct": average("baseline_availability_pct"),
+        "major_average_analysis_availability_pct": average("analysis_mean_availability_pct"),
+        "major_average_drop_pp": average("mean_drop_pp"),
+        "maximum_peak_drop_pp": max((float(row["peak_drop_pp"]) for row in rows
+            if row.get("peak_drop_pp") is not None), default=None),
+        "sample_completeness_pct": round(100 * valid_minutes / expected_minutes, 4) if expected_minutes else None,
+    }
+    return rows, summary
 
 
 def adapt_diagnosis_report(raw: dict[str, Any], snapshot: dict[str, Any]) -> DiagnosisInput:
@@ -171,12 +219,17 @@ def adapt_diagnosis_report(raw: dict[str, Any], snapshot: dict[str, Any]) -> Dia
     conclusions.append("候选排序来自共同依赖、容量/设备指标、告警时序和正常对照；不是已校准故障概率。")
 
     overview = dict(raw.get("anomaly_overview", {}))
+    service_comparison, indicator_summary = _compact_service_comparison(
+        list(overview.get("all_service_statuses", [])))
     overview.pop("all_service_statuses", None)
     overview.update({
         "provider": "collaborator_satellite_diagnosis",
         "provider_schema_version": raw["schema_version"],
         "graph_backend": raw.get("graph_backend"),
         "analysis_window": window,
+        "indicator_policy": dict(raw.get("diagnostic_policy", {})),
+        "indicator_summary": indicator_summary,
+        "service_comparison": service_comparison,
         "data_quality_summary": {
             "unobserved_service_ids": data_quality.get("unobserved_service_ids", []),
             "service_missing_minutes": data_quality.get("service_missing_minutes", 0),

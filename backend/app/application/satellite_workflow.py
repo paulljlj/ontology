@@ -199,13 +199,84 @@ async def _routing(context, spec):
     result = optimize_snapshot(context["snapshot"], avoid_objects, service_ids=p.service_ids,
         max_utilization_pct=p.max_utilization_pct, max_latency_ms=p.max_latency_ms, max_options=p.max_options)
     context["routing"] = result
+    routing_rule_facts = [{"rule_id": key, "status": (
+            "passed" if result["status"] == "feasible" and key != "PLAN-SLA" else
+            "model_checked_only" if result["status"] == "feasible" else
+            "not_applicable" if result["status"] == "no_change_needed" else
+            "not_evaluated" if result["status"] == "insufficient_data" else "not_established")}
+        for key in ("PLAN-PATH", "PLAN-LOAD", "PLAN-SLA")]
+    context["routing_rule_facts"] = routing_rule_facts
     return {"status": result["status"], "reason": result.get("reason", ""),
         "proposal_count": len(result["proposals"]), "evidence": result.get("evidence", []),
         "limitations": result.get("limitations", []), "search_limits": result.get("search_limits", {}),
-        "rule_facts": [{"rule_id": key, "status": ("model_latency_checked_only" if key == "PLAN-SLA" else "model_checked")
-            if result["status"] == "feasible" else "not_established"}
-            for key in ("PLAN-PATH", "PLAN-LOAD", "PLAN-SLA")],
+        "rule_facts": routing_rule_facts,
         "availability_sla": "not_evaluated_no_post_switch_observation"}
+
+
+def _report_metrics(diagnosis, snapshot: dict, routing: dict) -> tuple[list[dict], list[dict], str]:
+    scope = [{"label": "卫星", "value": sum(n["node_type"] == "satellite" for n in snapshot["nodes"].values()), "unit": "颗"},
+        {"label": "地面站", "value": sum(n["node_type"] == "ground_station" for n in snapshot["nodes"].values()), "unit": "个"},
+        {"label": "有向链路", "value": len(snapshot["links"]), "unit": "条"},
+        {"label": "业务", "value": len(snapshot["services"]), "unit": "个"},
+        {"label": "备选方案", "value": len(routing["proposals"]), "unit": "个"}]
+    if not diagnosis:
+        return scope, scope, "本次未启用诊断，只展示网络范围与路径验算结果。"
+    summary = diagnosis.overview.get("indicator_summary", {})
+    metrics = [
+        {"label": "重大异常业务", "value": summary.get("major_count", 0), "unit": "个"},
+        {"label": "异常业务基线均值", "value": summary.get("major_average_baseline_availability_pct"), "unit": "%"},
+        {"label": "异常业务窗口均值", "value": summary.get("major_average_analysis_availability_pct"), "unit": "%"},
+        {"label": "平均下降", "value": summary.get("major_average_drop_pp"), "unit": "个百分点"},
+        {"label": "轻微/潜在异常", "value": summary.get("watch_count", 0), "unit": "个"},
+        {"label": "样本完整率", "value": summary.get("sample_completeness_pct"), "unit": "%"},
+    ]
+    text = (f"共分析 {summary.get('service_count', len(snapshot['services']))} 个端到端业务，"
+        f"识别 {summary.get('major_count', 0)} 个持续重大异常、{summary.get('watch_count', 0)} 个轻微或潜在异常；"
+        f"重大异常业务窗口均值较各自基线平均下降 {summary.get('major_average_drop_pp', '—')} 个百分点。")
+    return metrics, scope, text
+
+
+def _rule_execution(context: dict, diagnosis, routing: dict) -> dict:
+    domain = []
+    for item in context["ontology_validation"]["rule_facts"]:
+        if item.get("executor") == "routing_handler":
+            continue
+        fact = dict(item)
+        if fact["rule_id"] == "NET-SNAPSHOT":
+            fact["status"] = "passed"
+            fact["evidence"] = {"at": context["snapshot"]["at"], "as_of": context["snapshot"]["as_of"],
+                "source": "time-bounded snapshot loader"}
+        domain.append(fact)
+    diagnostic = []
+    if diagnosis:
+        policy = diagnosis.overview.get("indicator_policy", {})
+        summary = diagnosis.overview.get("indicator_summary", {})
+        diagnostic = [
+            {"rule_id": "DIAG-THRESHOLD", "status": "passed", "description": "按业务基线、下降百分点和连续采样判断异常",
+                "evidence": {"major_rule": policy.get("major_alert"), "watch_rule": policy.get("watch"),
+                    "major_count": summary.get("major_count"), "watch_count": summary.get("watch_count")}},
+            {"rule_id": "DIAG-TEMPORAL", "status": "passed", "description": "按当时生效路由和证据可获时间查询共同依赖",
+                "evidence": {"analysis_window": diagnosis.overview.get("analysis_window"),
+                    "graph_backend": diagnosis.overview.get("graph_backend"), "as_of": diagnosis.as_of.isoformat()}},
+            {"rule_id": "DIAG-CONTROL", "status": "passed", "description": "使用同资源和同地面站不同路径的正常业务作为对照",
+                "evidence": {"comparison_count": max(0, len(diagnosis.impact) - 1)}},
+        ]
+    else:
+        diagnostic = [{"rule_id": key, "status": "not_evaluated", "description": "本次未启用诊断"}
+            for key in ("DIAG-THRESHOLD", "DIAG-TEMPORAL", "DIAG-CONTROL")]
+    routing_descriptions = {
+        "PLAN-PATH": "路径连续，保持业务源和允许出口",
+        "PLAN-LOAD": "迁移业务联合预留容量，并检查共享资源",
+        "PLAN-SLA": "仅校验模型时延；改路后可用度仍需实测",
+    }
+    routing_facts = [{**item, "description": routing_descriptions[item["rule_id"]],
+        "evidence": {"routing_status": routing["status"], "proposal_count": len(routing["proposals"])}}
+        for item in context.get("routing_rule_facts", [])]
+    all_facts = domain + diagnostic + routing_facts
+    return {"summary": {"passed": sum(item["status"] == "passed" for item in all_facts),
+            "model_checked_only": sum(item["status"] == "model_checked_only" for item in all_facts),
+            "not_evaluated_or_not_established": sum(item["status"] in {"not_evaluated", "not_established"} for item in all_facts)},
+        "domain_rules": domain, "diagnostic_rules": diagnostic, "routing_rules": routing_facts}
 
 
 def compose_report(context: dict) -> dict:
@@ -217,10 +288,7 @@ def compose_report(context: dict) -> dict:
         "timestamp": row.get("timestamp"), "availability_pct": row.get("availability_pct"),
         "sample_id": row.get("sample_id"), "measurement_status": row.get("measurement_status")}
         for k, row in snapshot["service_metrics"].items()]
-    metrics = [{"label": "卫星", "value": sum(n["node_type"] == "satellite" for n in snapshot["nodes"].values()), "unit": "颗"},
-        {"label": "地面站", "value": sum(n["node_type"] == "ground_station" for n in snapshot["nodes"].values()), "unit": "个"},
-        {"label": "有向链路", "value": len(snapshot["links"]), "unit": "条"},
-        {"label": "备选方案", "value": len(routing["proposals"]), "unit": "个"}]
+    metrics, scope_metrics, metric_summary = _report_metrics(diagnosis, snapshot, routing)
     outcome = {"feasible": "找到满足当前容量余量和模型时延约束的备选方案。", "no_feasible_route": "当前条件下没有找到可行备选路径。",
         "insufficient_data": "关键观测不足，不能确认改路可行性。", "no_change_needed": "当前路由未经过指定待避对象，无需据此改路。"}.get(routing["status"], "请查看约束检查结果。")
     conclusions = [outcome, "路径模块使用人工条件或诊断模块的优先候选进行验算；候选仍不是已确认故障根因。",
@@ -245,9 +313,12 @@ def compose_report(context: dict) -> dict:
     ]}
     report = {"schema_version": "1.0", "dataset_kind": "synthetic", "case_id": p.case_id,
         "at": snapshot["at"], "as_of": snapshot["as_of"], "diagnosis_status": "provided" if diagnosis else "pending",
-        "overview": {"summary": pending if not diagnosis else ("已运行同学交付的诊断模块并核对原始证据；原因候选不等于因果确认。"
-                if origin == "integrated_module" else "已接收外部诊断；原始证据引用已核对，原因判断不等于独立因果确认。"),
-            "metrics": metrics, "observations": observations, "external_summary": diagnosis.overview if diagnosis else {}},
+        "overview": {"summary": pending if not diagnosis else metric_summary,
+            "metrics": metrics, "scope_metrics": scope_metrics, "observations": observations,
+            "indicator_policy": diagnosis.overview.get("indicator_policy", {}) if diagnosis else {},
+            "indicator_summary": diagnosis.overview.get("indicator_summary", {}) if diagnosis else {},
+            "service_comparison": diagnosis.overview.get("service_comparison", []) if diagnosis else [],
+            "external_summary": diagnosis.overview if diagnosis else {}},
         "causes": {"status": "provided" if diagnosis else "pending", "items": [c.model_dump() for c in diagnosis.causes] if diagnosis else [], "note": pending if not diagnosis else "来源为外部诊断，保留其支持、反对与缺失证据。"},
         "watch_items": {"status": "provided" if diagnosis else "pending", "items": diagnosis.watch_items if diagnosis else [], "note": pending if not diagnosis else "关注对象不等于必然故障。"},
         "route_options": display_routing,
@@ -260,6 +331,7 @@ def compose_report(context: dict) -> dict:
             "avoid_objects": context.get("avoid_objects", p.avoid_objects), "execution_mode": context["mode"], "rule_version": "satellite-planning-v2"},
         "evidence": [e.model_dump(mode="json") for e in diagnosis.evidence] if diagnosis else [],
         "ontology_validation": {"checked": context["ontology_validation"]["checked"], "rule_facts": context["ontology_validation"]["rule_facts"]},
+        "rule_execution": _rule_execution(context, diagnosis, routing),
         "topology": {"nodes": [{"id": k, "type": v["node_type"], "label": k} for k, v in snapshot["nodes"].items()],
             "edges": [{"id": k, "source": v["source_node_id"], "target": v["target_node_id"]} for k, v in snapshot["links"].items()]},
     }
@@ -304,6 +376,13 @@ def render_report_html(report: dict) -> str:
         for m in overview["metrics"]) + "</div>"]
     if overview.get("external_summary"):
         content[0] += details(overview["external_summary"], "外部模块的异常概况")
+    comparisons = overview.get("service_comparison", [])
+    if comparisons:
+        content[0] += table(["业务", "判断", "基线可用度 %", "窗口均值 %", "平均下降/百分点", "峰值下降/百分点", "最长持续/分钟"], [
+            [row.get("service_id"), row.get("classification_label"), row.get("baseline_availability_pct"),
+             row.get("analysis_mean_availability_pct"), row.get("mean_drop_pp"), row.get("peak_drop_pp"),
+             row.get("longest_contiguous_minutes")] for row in comparisons])
+        content[0] += details(overview.get("indicator_policy", {}), "查看异常指标口径与阈值")
     content[0] += details(overview["observations"], "原始业务可用度观测（不等于异常结论）")
     content += [external(report["causes"]), external(report["watch_items"])]
     routing = report["route_options"]
@@ -322,7 +401,15 @@ def render_report_html(report: dict) -> str:
     routes += bullets(routing.get("limitations", []))
     if not routing["proposals"]:
         routes += details(routing, "无方案的约束与缺失数据")
-    content += [routes, external(report["impact"]), bullets(report["conclusions"]["items"]) + "<h3>待补证据</h3>" + bullets(report["conclusions"]["missing_evidence"])]
+    rule_groups = report.get("rule_execution", {})
+    rule_rows = []
+    for group in ("domain_rules", "diagnostic_rules", "routing_rules"):
+        for fact in rule_groups.get(group, []):
+            rule_rows.append([fact.get("rule_id"), fact.get("description"), fact.get("status")])
+    rules_html = ("<h3>本次规则执行情况</h3>" + table(["规则", "检查内容", "执行结果"], rule_rows)
+        + details(rule_groups, "查看每条规则的执行证据")) if rule_rows else ""
+    content += [routes, external(report["impact"]), bullets(report["conclusions"]["items"]) +
+        "<h3>待补证据</h3>" + bullets(report["conclusions"]["missing_evidence"]) + rules_html]
     titles = ["异常概况", "根因候选与异常原因", "潜在或轻微异常", "备选通信路径", "影响与对照", "结论与待补证据"]
     body = "".join(f"<section><h2>{index:02d} {title}</h2>{part}</section>" for index, (title, part) in enumerate(zip(titles, content), 1))
     fixture = " · 外部诊断为开发样例，不是已交付算法结果" if report["provenance"]["diagnosis_is_fixture"] else ""

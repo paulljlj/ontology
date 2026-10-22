@@ -31,6 +31,9 @@ export type SatelliteReport = {
     summary?: string;
     metrics?: Array<{ label: string; value: unknown; unit?: string }>;
     observations?: Record<string, unknown>[];
+    indicator_policy?: Record<string, unknown>;
+    indicator_summary?: Record<string, unknown>;
+    service_comparison?: Record<string, unknown>[];
   };
   causes: SatelliteSection;
   watch_items: SatelliteSection;
@@ -42,6 +45,12 @@ export type SatelliteReport = {
   };
   impact: SatelliteSection;
   conclusions: { items?: string[]; missing_evidence?: string[] };
+  rule_execution?: {
+    summary?: Record<string, unknown>;
+    domain_rules?: Record<string, unknown>[];
+    diagnostic_rules?: Record<string, unknown>[];
+    routing_rules?: Record<string, unknown>[];
+  };
   provenance: {
     input_source: "manual" | "diagnosis_json" | "integrated_diagnosis";
     diagnosis_provider?: string | null;
