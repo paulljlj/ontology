@@ -15,6 +15,7 @@ htmlcov/
 _rename_backup/
 backend/report_artifacts/
 .satellite-runtime/
+**/.satellite-test-temp/
 .satellite-data-build/
 data-output/*.zip
 .chart-data-*/

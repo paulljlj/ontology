@@ -1,8 +1,4 @@
-"""Satellite planning workflow: registered processors, real MCP, traceable output.
-
-The independently developed diagnosis module is deliberately not fabricated.
-Manual avoidance targets and pasted diagnosis results retain their provenance.
-"""
+"""Satellite diagnosis and route-planning workflow with traceable processors."""
 from __future__ import annotations
 import asyncio
 from contextlib import AsyncExitStack
@@ -21,6 +17,7 @@ from app.infrastructure.orm import WorkflowRunORM, ExecutionTaskORM, ArtifactORM
 from app.infrastructure.satellite_config import data_root, artifact_root, mcp_config
 from app.infrastructure.satellite_data import load_case, parse_time
 from app.infrastructure.mcp_gateway import McpGateway, describe_exception
+from app.application.satellite_diagnosis_adapter import run_integrated_diagnosis
 from app.application.satellite_routing import optimize_snapshot
 
 
@@ -34,11 +31,15 @@ def build_satellite_plan(payload: SatelliteRunCreate, mode: str) -> list[dict]:
         ("load_snapshot", "读取时点网络数据", "satellite.snapshot", "data.snapshot", "NET-SNAPSHOT", ["duckdb.execute_query"] if mode == "mcp" else []),
         ("validate_domain", "校验本体对象与关系", "satellite.ontology", "ontology.validate", "NET-TYPE / NET-ENDPOINT / NET-TIME", []),
     ]
-    if payload.diagnosis:
+    if payload.auto_diagnosis:
+        bindings = ["neo4j.get-schema", "neo4j.read-cypher"] if payload.diagnosis_graph_backend == "neo4j_mcp" else []
+        steps.append(("diagnose_network", "分析异常、候选原因与正常对照", "satellite.diagnosis.auto",
+            "satellite.diagnosis", "DIAG-THRESHOLD / DIAG-TEMPORAL / DIAG-CONTROL", bindings))
+    elif payload.diagnosis:
         steps.append(("accept_diagnosis", "校验外部诊断与证据引用", "satellite.diagnosis", "evidence.validate", "外部诊断必须同案例、同截止时间且证据可追溯", []))
     steps += [
         ("plan_routes", "联合验算备选通信路径", "satellite.routing", "network.reroute", "PLAN-PATH / PLAN-LOAD / PLAN-SLA", []),
-        ("build_report", "汇总六部分报告", "satellite.report", "report.compose", "缺少诊断时保留待接入，不将手动目标当根因", []),
+        ("build_report", "汇总六部分报告", "satellite.report", "report.compose", "未启用诊断时明确标注，不将手动目标当根因", []),
         ("publish_report", "生成报告与结果文件", "satellite.publish", "artifact.write", "产物写入本次运行专属目录", ["filesystem.write_file"] if mode == "mcp" else []),
         ("verify_delivery", "检查产物和执行证据", "satellite.verify", "artifact.verify", "下载文件必须存在、可解析且与本次结果一致", ["filesystem.get_file_info"] if mode == "mcp" else []),
     ]
@@ -48,7 +49,9 @@ def build_satellite_plan(payload: SatelliteRunCreate, mode: str) -> list[dict]:
             "name": processor, "processor": processor, "version": "1.0", "generated_for_run": True,
             "required_capabilities": [capability], "mcp_bindings": tools,
             "depends_on": [steps[index - 1][0]] if index else [], "ontology_rule": rule,
-            "parameters": {"source": "validated_run_contract"}, "permission_policy": "observation-read/artifact-scoped-write",
+            "parameters": {"source": "validated_run_contract",
+                "diagnosis_graph_backend": payload.diagnosis_graph_backend if processor == "satellite.diagnosis.auto" else None},
+            "permission_policy": "observation-read/artifact-scoped-write",
         }})
     return plan
 
@@ -56,6 +59,9 @@ def build_satellite_plan(payload: SatelliteRunCreate, mode: str) -> list[dict]:
 def create_satellite_run(payload: SatelliteRunCreate) -> str:
     # Validate caller IDs and times before returning 202, with no MCP launch.
     snapshot = load_case(data_root(), payload.case_id, at=_time(payload.at), as_of=_time(payload.as_of))
+    if payload.auto_diagnosis and not (parse_time(snapshot["case"]["analysis_start"]) <= parse_time(snapshot["at"])
+            < parse_time(snapshot["case"]["analysis_end_exclusive"])):
+        raise ValueError("自动诊断的评估时刻必须位于案例分析窗口内")
     unknown = set(payload.avoid_objects) - set(snapshot["nodes"]) - set(snapshot["links"])
     if unknown:
         raise ValueError("未知待避对象：" + ", ".join(sorted(unknown)))
@@ -71,8 +77,9 @@ def create_satellite_run(payload: SatelliteRunCreate) -> str:
             requirement=payload.requirement, status="planning", input_files=[{"name": "satellite_demo_v1/observed", "size": 0}],
             result_contract={"case_id": payload.case_id, "avoid_objects": payload.avoid_objects,
                 "at": snapshot["at"], "as_of": snapshot["as_of"], "execution_mode": mode,
-                "request": payload.model_dump(mode="json"), "rule_version": "satellite-planning-v1"},
-            summary={"progress": 0, "task_count": len(plan), "diagnosis_status": "provided" if payload.diagnosis else "pending"}))
+                "request": payload.model_dump(mode="json"), "rule_version": "satellite-planning-v2"},
+            summary={"progress": 0, "task_count": len(plan), "diagnosis_status":
+                "auto_pending" if payload.auto_diagnosis else ("provided" if payload.diagnosis else "pending")}))
         session.flush()
         for index, step in enumerate(plan, 1):
             session.add(ExecutionTaskORM(run_id=identity, task_key=step["key"], order_index=index,
@@ -81,8 +88,8 @@ def create_satellite_run(payload: SatelliteRunCreate) -> str:
     return identity
 
 
-def validate_diagnosis(payload: SatelliteRunCreate, snapshot: dict) -> dict:
-    diagnosis = payload.diagnosis
+def validate_diagnosis(payload: SatelliteRunCreate, snapshot: dict, diagnosis=None) -> dict:
+    diagnosis = diagnosis or payload.diagnosis
     if diagnosis is None:
         return {"status": "pending", "verified_references": 0}
     cutoff = parse_time(snapshot["as_of"])
@@ -98,19 +105,26 @@ def validate_diagnosis(payload: SatelliteRunCreate, snapshot: dict) -> dict:
         actual_type = "link" if cause.object_id in snapshot["links"] else snapshot["nodes"][cause.object_id]["node_type"]
         if cause.object_type != actual_type:
             raise ValueError("外部诊断候选对象类型与本体对象不一致：" + cause.object_id)
+    requested_tables = {Path(ref.source_file).stem for ref in diagnosis.evidence}
+    evidence_index: dict[str, set[tuple[str, str, datetime, datetime]]] = {}
+    for table in requested_tables:
+        entries: set[tuple[str, str, datetime, datetime]] = set()
+        for row in snapshot.get("tables", {}).get(table, []):
+            stamp = row.get("timestamp") or row.get("event_start")
+            available = row.get("available_at")
+            if not stamp or not available:
+                continue
+            record_ids = {str(row[k]) for k in ("sample_id", "event_id", "route_id", "service_id", "node_id", "link_id") if row.get(k)}
+            object_ids = {str(row[k]) for k in ("node_id", "link_id", "service_id", "source_satellite_id", "object_id") if row.get(k)}
+            parsed_stamp, parsed_available = parse_time(stamp), parse_time(available)
+            entries.update((record_id, object_id, parsed_stamp, parsed_available)
+                           for record_id in record_ids for object_id in object_ids)
+        evidence_index[table] = entries
     for ref in diagnosis.evidence:
         if ref.timestamp > parse_time(snapshot["at"]):
             raise ValueError("诊断证据发生时间晚于本次快照：" + ref.evidence_id)
         table = Path(ref.source_file).stem
-        rows = snapshot.get("tables", {}).get(table, [])
-        matched = []
-        for row in rows:
-            record_ids = {str(row[k]) for k in ("sample_id", "event_id", "route_id", "service_id", "node_id", "link_id") if row.get(k)}
-            object_ids = {str(row[k]) for k in ("node_id", "link_id", "service_id", "source_satellite_id", "object_id") if row.get(k)}
-            stamp = row.get("timestamp") or row.get("event_start")
-            if ref.record_id in record_ids and ref.object_id in object_ids and stamp and parse_time(stamp) == ref.timestamp:
-                matched.append(row)
-        if not matched or not any(row.get("available_at") and parse_time(row["available_at"]) == ref.available_at for row in matched):
+        if (ref.record_id, ref.object_id, ref.timestamp, ref.available_at) not in evidence_index.get(table, set()):
             raise ValueError(f"诊断证据无法在本次可知观测中核对：{ref.evidence_id}")
     return {"status": "references_verified_not_causal_confirmation", "verified_references": len(diagnosis.evidence),
         "source": diagnosis.source, "evidence": [e.model_dump(mode="json") for e in diagnosis.evidence]}
@@ -154,13 +168,35 @@ async def _ontology(context, spec):
 
 async def _diagnosis(context, spec):
     checked = validate_diagnosis(context["payload"], context["snapshot"])
+    context["diagnosis"] = context["payload"].diagnosis
+    context["diagnosis_origin"] = "external_json"
+    context["avoid_objects"] = list(context["payload"].avoid_objects)
     context["diagnosis_validation"] = checked
     return checked
 
 
+async def _auto_diagnosis(context, spec):
+    payload = context["payload"]
+    diagnosis, raw = await asyncio.to_thread(run_integrated_diagnosis, data_root(), context["snapshot"],
+        graph_backend=payload.diagnosis_graph_backend)
+    checked = validate_diagnosis(payload, context["snapshot"], diagnosis)
+    inferred = [cause.object_id for cause in diagnosis.causes if cause.status == "supported"]
+    context["diagnosis"] = diagnosis
+    context["diagnosis_raw"] = raw
+    context["diagnosis_origin"] = "integrated_module"
+    context["diagnosis_validation"] = checked
+    context["avoid_objects"] = list(payload.avoid_objects) if payload.avoid_objects else inferred
+    return {**checked, "provider": "collaborator_satellite_diagnosis", "provider_schema_version": raw["schema_version"],
+        "graph_backend": raw.get("graph_backend"), "major_count": raw["anomaly_overview"]["major_count"],
+        "candidate_count": len(raw["root_cause_candidates"]), "watch_count": len(raw["minor_anomalies"].get("watch", [])),
+        "priority_object": raw["conclusion_and_missing_evidence"].get("priority_object"),
+        "selected_avoid_objects": context["avoid_objects"]}
+
+
 async def _routing(context, spec):
     p = context["payload"]
-    result = optimize_snapshot(context["snapshot"], p.avoid_objects, service_ids=p.service_ids,
+    avoid_objects = context.get("avoid_objects", p.avoid_objects)
+    result = optimize_snapshot(context["snapshot"], avoid_objects, service_ids=p.service_ids,
         max_utilization_pct=p.max_utilization_pct, max_latency_ms=p.max_latency_ms, max_options=p.max_options)
     context["routing"] = result
     return {"status": result["status"], "reason": result.get("reason", ""),
@@ -174,8 +210,9 @@ async def _routing(context, spec):
 
 def compose_report(context: dict) -> dict:
     p, snapshot, routing = context["payload"], context["snapshot"], context["routing"]
-    diagnosis = p.diagnosis
-    pending = "同学的数据诊断模块待接入；当前只展示原始观测和路径验算，不宣称已发现根因。"
+    diagnosis = context.get("diagnosis") or p.diagnosis
+    origin = context.get("diagnosis_origin", "external_json" if p.diagnosis else "manual")
+    pending = "未启用自动诊断且未提供外部诊断；当前只展示原始观测和路径验算，不宣称已发现根因。"
     observations = [{"service_id": k, "source_satellite_id": row.get("source_satellite_id"),
         "timestamp": row.get("timestamp"), "availability_pct": row.get("availability_pct"),
         "sample_id": row.get("sample_id"), "measurement_status": row.get("measurement_status")}
@@ -186,7 +223,7 @@ def compose_report(context: dict) -> dict:
         {"label": "备选方案", "value": len(routing["proposals"]), "unit": "个"}]
     outcome = {"feasible": "找到满足当前容量余量和模型时延约束的备选方案。", "no_feasible_route": "当前条件下没有找到可行备选路径。",
         "insufficient_data": "关键观测不足，不能确认改路可行性。", "no_change_needed": "当前路由未经过指定待避对象，无需据此改路。"}.get(routing["status"], "请查看约束检查结果。")
-    conclusions = [outcome, "待避对象由人工输入或外部诊断提供，不是路径模块自动确认的故障根因。",
+    conclusions = [outcome, "路径模块使用人工条件或诊断模块的优先候选进行验算；候选仍不是已确认故障根因。",
         "所有结果来自模拟数据；路径只建议、不执行切换，可用度改善和真实因果关系尚未验证。"]
     missing = ["真实运行数据、实际切换后观测与人工确认的故障记录。"]
     if diagnosis:
@@ -194,7 +231,7 @@ def compose_report(context: dict) -> dict:
         missing += diagnosis.missing_evidence
         if diagnosis.source == "development_fixture": conclusions.insert(0, "外部诊断为开发测试样例，不能当作已交付算法的诊断结果。")
     else:
-        missing.insert(0, "待接入同学的异常检测、根因候选、轻微异常及对照分析结果。")
+        missing.insert(0, "本次未启用自动诊断，也未提供外部诊断结果。")
     if routing.get("reason") and routing["status"] == "insufficient_data":
         missing.append("路径验算所需的完整当前观测：" + routing["reason"])
     display_routing = {**routing, "technical_limitations": routing.get("limitations", []), "limitations": [
@@ -208,15 +245,19 @@ def compose_report(context: dict) -> dict:
     ]}
     report = {"schema_version": "1.0", "dataset_kind": "synthetic", "case_id": p.case_id,
         "at": snapshot["at"], "as_of": snapshot["as_of"], "diagnosis_status": "provided" if diagnosis else "pending",
-        "overview": {"summary": pending if not diagnosis else "已接收外部诊断；原始证据引用已核对，原因判断不等于独立因果确认。",
+        "overview": {"summary": pending if not diagnosis else ("已运行同学交付的诊断模块并核对原始证据；原因候选不等于因果确认。"
+                if origin == "integrated_module" else "已接收外部诊断；原始证据引用已核对，原因判断不等于独立因果确认。"),
             "metrics": metrics, "observations": observations, "external_summary": diagnosis.overview if diagnosis else {}},
         "causes": {"status": "provided" if diagnosis else "pending", "items": [c.model_dump() for c in diagnosis.causes] if diagnosis else [], "note": pending if not diagnosis else "来源为外部诊断，保留其支持、反对与缺失证据。"},
         "watch_items": {"status": "provided" if diagnosis else "pending", "items": diagnosis.watch_items if diagnosis else [], "note": pending if not diagnosis else "关注对象不等于必然故障。"},
         "route_options": display_routing,
         "impact": {"status": "provided" if diagnosis else "pending", "items": diagnosis.impact if diagnosis else [], "note": pending if not diagnosis else "正常对照分析来源为外部模块；路径方案另对共享资源进行约束检查。"},
         "conclusions": {"items": conclusions, "missing_evidence": missing},
-        "provenance": {"input_source": "diagnosis_json" if diagnosis else "manual", "diagnosis_is_fixture": bool(diagnosis and diagnosis.source == "development_fixture"),
-            "avoid_objects": p.avoid_objects, "execution_mode": context["mode"], "rule_version": "satellite-planning-v1"},
+        "provenance": {"input_source": "integrated_diagnosis" if origin == "integrated_module" else ("diagnosis_json" if diagnosis else "manual"),
+            "diagnosis_provider": "collaborator_satellite_diagnosis" if origin == "integrated_module" else None,
+            "diagnosis_graph_backend": context.get("diagnosis_raw", {}).get("graph_backend") if origin == "integrated_module" else None,
+            "diagnosis_is_fixture": bool(diagnosis and diagnosis.source == "development_fixture"),
+            "avoid_objects": context.get("avoid_objects", p.avoid_objects), "execution_mode": context["mode"], "rule_version": "satellite-planning-v2"},
         "evidence": [e.model_dump(mode="json") for e in diagnosis.evidence] if diagnosis else [],
         "ontology_validation": {"checked": context["ontology_validation"]["checked"], "rule_facts": context["ontology_validation"]["rule_facts"]},
         "topology": {"nodes": [{"id": k, "type": v["node_type"], "label": k} for k, v in snapshot["nodes"].items()],
@@ -285,10 +326,12 @@ def render_report_html(report: dict) -> str:
     titles = ["异常概况", "根因候选与异常原因", "潜在或轻微异常", "备选通信路径", "影响与对照", "结论与待补证据"]
     body = "".join(f"<section><h2>{index:02d} {title}</h2>{part}</section>" for index, (title, part) in enumerate(zip(titles, content), 1))
     fixture = " · 外部诊断为开发样例，不是已交付算法结果" if report["provenance"]["diagnosis_is_fixture"] else ""
+    source_note = " · 已运行同学诊断模块" if report["provenance"].get("input_source") == "integrated_diagnosis" else (
+        " · 已接收外部诊断JSON" if report["provenance"].get("input_source") == "diagnosis_json" else " · 手动待避条件")
     return ('<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
         '<title>卫星网络分析与路径建议</title><style>body{font:15px/1.7 system-ui;margin:32px auto;padding:0 20px;max-width:1120px;background:#f4f7fb;color:#19334c}header{border-bottom:4px solid #1268a6;padding-bottom:18px}section{background:white;border:1px solid #dce4ed;border-radius:10px;padding:24px;margin:20px 0}h1,h2{color:#1268a6}h2{font-size:21px;margin-top:0}small{font-size:13px;margin-left:4px}.metrics{display:flex;flex-wrap:wrap;gap:16px}.metrics div{background:#eff5fa;min-width:120px;padding:12px 20px;border-radius:6px}.metrics span,.metrics strong{display:block}.metrics strong{font-size:24px}.table{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:13px;margin:12px 0}th,td{padding:10px;border-bottom:1px solid #dde6f0;text-align:left}th{background:#edf4fa;white-space:nowrap}td{min-width:80px}details{margin:12px 0}summary{cursor:pointer;color:#1268a6}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.6 ui-monospace,monospace}.item{border-left:3px solid #bdd5ea;padding:10px 16px;margin:12px 0}.notice{color:#8c4c0b}footer{font-size:13px;color:#607487}@media print{body{margin:0;background:white}section{break-inside:auto}details{display:none}}</style></head><body><header><h1>卫星网络分析与路径建议</h1>'
         + f"<p>{cell(report['case_id'])} · 评估时刻 {cell(report['at'])} · 证据截止 {cell(report['as_of'])}</p>"
-        + '<p class="notice">模拟数据 · 建议不执行切换 · 手动待避对象不代表已确认根因' + cell(fixture) + '</p></header>'
+        + '<p class="notice">模拟数据 · 建议不执行切换 · 候选不代表已确认根因' + cell(source_note) + cell(fixture) + '</p></header>'
         + body + '<footer>完整证据、MCP 查询记录和技术字段请查看同次运行的 JSON 文件与工作台执行记录。</footer></body></html>')
 
 
@@ -299,6 +342,9 @@ async def _publish(context, spec):
     report["mcp_calls_before_publication"] = list(context["gateway"].calls) if context.get("gateway") else []
     files = [("satellite-report.json", "application/json", json.dumps(report, ensure_ascii=False, indent=2)),
              ("satellite-report.html", "text/html", render_report_html(report))]
+    if context.get("diagnosis_raw") is not None:
+        files.append(("satellite-diagnosis-raw.json", "application/json",
+            json.dumps(context["diagnosis_raw"], ensure_ascii=False, indent=2)))
     context["files"] = []
     for name, mime, content in files:
         target = (directory / name).resolve()
@@ -332,7 +378,8 @@ async def _verify(context, spec):
 
 
 PROCESSORS: dict[str, Callable] = {"satellite.snapshot": _snapshot, "satellite.ontology": _ontology,
-    "satellite.diagnosis": _diagnosis, "satellite.routing": _routing, "satellite.report": _report,
+    "satellite.diagnosis": _diagnosis, "satellite.diagnosis.auto": _auto_diagnosis,
+    "satellite.routing": _routing, "satellite.report": _report,
     "satellite.publish": _publish, "satellite.verify": _verify}
 
 

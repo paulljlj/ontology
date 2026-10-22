@@ -1,6 +1,6 @@
 # 接手入口：卫星场景协作演示 fengongdemo1
 
-更新日期：2026-10-19。仓库：`paulljlj/ontology`；交接分支：`fengongdemo1`。
+更新日期：2026-10-22。仓库：`paulljlj/ontology`；交接分支：`fengongdemo1`。
 
 这是给换账号、换会话或新同学的完整接手说明。先读本文件，再看代码；不要把早期方案、PPT或数据生成器答案当成当前系统已经实现的功能。
 
@@ -19,22 +19,22 @@
 | 负责人 | 独立负责 | 当前状态 |
 | --- | --- | --- |
 | 我们 / A / 当前仓库维护方 | 备选路径计算、本体类/关系/约束、任务编排、MCP统一接入、API、前端报告、下载和联调 | 本分支已有可运行首版 |
-| 同学 / B | 异常概况、根因候选与原因、潜在或轻微异常、影响与正常对照、结论与缺失证据 | 已发分工；本仓库尚未收到她的实际诊断代码/结果 |
+| 同学 / B | 异常概况、根因候选与原因、潜在或轻微异常、影响与正常对照、结论与缺失证据 | 已交付并整合：`backend/satellite_diagnosis/` |
 
-我们也已经实现了系统侧文件适配器；B仍可直接使用同一套CSV独立开发，不依赖我们的前端/数据库/OWL环境。B不用重做路径算法。不要把两个人安排成“必须等A做完，B才能开始”。
+两部分已经通过受控适配器合并：B模块仍可脱离前端/数据库/OWL独立运行，我们的工作流负责核验其证据、选择优先候选并继续做路径验算。B没有重做路径算法，A也没有重写B的数据诊断。
 
 导师希望体现MCP：先查有没有合适的开源Server，通用查询/文件能力优先复用；卫星专用判断没有现成工具时补Python。不是为了凑数量把每个函数伪装成开源MCP。
 
-### 已发给B的交付要求
+### B实际交付内容
 
-B从CSV独立分析，先终端运行，输出结构化JSON；每项原因判断可对应具体指标、时间或告警。交付：
+B从CSV独立分析并输出结构化JSON；每项原因判断可对应具体指标、时间或告警。仓库现已纳入：
 
-- `.py`代码，可调用函数；Python版本和依赖清单。
-- 运行示例、JSON示例、测试代码与测试说明。
-- 若用了MCP，提供Server版本、启动配置和工具调用示例。
-- `evaluation/`只用于独立测试核对，不作为分析输入。
+- 可调用函数 `satellite_diagnosis.analyze_case(...)`、CLI、依赖说明和30余项测试。
+- schema 1.1完整诊断：阈值、时态路由共同依赖、环境/容量/链路证据、正常对照和数据质量。
+- 可选官方 `neo4j/mcp` v1.6.0关系查询后端；本地图模式明确标为 `local_test_only`。
+- `evaluation/`仅由显式评估测试核对，运行时allowlist禁止读取。
 
-推荐函数边界：`analyze(data_dir, case_id, analysis_start, analysis_end, as_of) -> dict`。这只是建议函数名；对接以诊断JSON Schema为准。
+系统通过 `backend/app/application/satellite_diagnosis_adapter.py` 将完整 schema 1.1 压缩、去重并映射到稳定的 `DiagnosisInput 1.0`，完整原始结果另存审计产物。
 
 ## 3. 已完成什么、尚未完成什么
 
@@ -48,15 +48,17 @@ B从CSV独立分析，先终端运行，输出结构化JSON；每项原因判断
 6. 新卫星工作台、案例和历史选择、网络拓扑、路径前后与资源负载、六部分报告、证据弹窗、JSON/可阅读HTML下载；旧经营报表入口保留。
 7. 两个真实开源MCP：本地DuckDB查询、官方Filesystem产物写入/核对；有真实SDK连接/工具发现/调用日志，不只是标签。
 8. 给B的诊断Schema、开发样例、校验和页面接收入口。
+9. 已整合同学诊断包：自动新增 `diagnose_network` 任务，把候选类型映射到本体对象、去重并复核证据；优先候选可直接驱动路径验算，完整分钟级诊断单独下载。
+10. 前端可选择本地时态图、Neo4j MCP或关闭自动诊断；本地图已实际跑通，MCP模式失败不回退。
 
 尚未完成：
 
-- B的真实诊断：异常数量、下降幅度/持续时间、原因比较、轻微风险和正常对照。
+- 官方Neo4j MCP + 数据库的本机成功调用验收；代码、Compose、导入和实时测试已准备，但本机尚未启动完整服务。
 - 真实卫星数据接入、真实故障答案、正式准确率评估、切换后实测和真实控制。
 - 贝叶斯网络、PCMCI+、反事实或分类模型；这些只是后续研究，不要向导师说已经做了。
 - 任意自然语言自动生成新Python算法/工具。卫星首版是按已注册能力形成场景化小计划；requirement保留要求，但不自由改写算法。
 
-没有诊断时，报告对应部分明确“待接入”。人工输入SAT-20仅表示“试着避开它验算路径”，不是系统找出的根因；即便路径可行也不等于故障已解决。
+关闭自动诊断且不提供外部诊断时，报告对应部分明确“本次未启用诊断”。人工输入SAT-20仅表示“试着避开它验算路径”，不是系统找出的根因；即便路径可行也不等于故障已解决。
 
 ## 4. 数据集完整说明
 
@@ -145,42 +147,44 @@ Server版本：mcp-server-motherduck1.0.8、duckdb1.5.5、官方Filesystem2.0.0�
 | backend/app/infrastructure/mcp_gateway.py | SDK stdio连接、initialize/list_tools、允许清单、JSONSchema参数校验、调用证据 |
 | backend/app/infrastructure/satellite_config.py | 数据/产物根、管理员MCP配置与公开状态；不接请求里的命令/SQL/路径 |
 | backend/app/application/satellite_routing.py | optimize_routes/optimize_snapshot；有向候选搜索+联合回溯；所有需求同时预留；共享业务时延与保守背景负载 |
+| backend/satellite_diagnosis/ | 同学交付的独立诊断包：阈值、时态图共同依赖、资源证据、环境/容量阶段和正常对照 |
+| backend/app/application/satellite_diagnosis_adapter.py | 将schema 1.1转成DiagnosisInput 1.0；类型映射、证据去重、时点/来源核验和摘要压缩 |
 | backend/app/application/satellite_workflow.py | build_satellite_plan、PROCESSORS、执行、诊断证据核验、报告、MCP产物与哈希 |
 | backend/app/api/satellite_routes.py | cases、mcp/status、创建/历史/详情和受运行/目录约束的下载 |
 | frontend/src/components/SatelliteWorkbench.tsx | 输入、实际进度、拓扑、路由/资源对照、六部分报告、MCP日志、证据与下载 |
 | frontend/src/satellite-api.ts、satellite-types.ts、satellite.css | API、数据类型和样式；App.tsx保留旧入口 |
 | backend/scripts/prepare_satellite_mcp.py | 导入11观测表、记录哈希、生成本机只读MCP配置 |
 | backend/scripts/satellite_workflow_demo.py、satellite_route_demo.py | 全流程CLI / 仅路径CLI |
+| backend/mcp/neo4j/ | 可选官方Neo4j MCP的Compose、无密钥样例与实机步骤；不包含第三方二进制 |
 
-实际步骤：`load_snapshot → validate_domain → [accept_diagnosis] → plan_routes → build_report → publish_report → verify_delivery`。方括号仅在有外部诊断时加入；无诊断6步，有诊断7步。
+自动诊断步骤：`load_snapshot → validate_domain → diagnose_network → plan_routes → build_report → publish_report → verify_delivery`。粘贴外部契约JSON时第三步为`accept_diagnosis`；关闭诊断并手动输入待避对象时仍为原六步。
 
 task_key是本次业务步骤标识；每步skill_spec有processor、依赖、能力/工具绑定等配置。执行器查PROCESSORS注册表调用真实处理器；处理器可组合多个Python函数或真实MCP工具。不是Python读取一段自然语言就自动知道怎么执行，也不是每步都动态生成新代码。
 
 路由默认85%请求利用率上限、150ms模型时延上限、最多3个方案。保持业务源与允许出口；缺少关键观测不填0；不进行实际切换，不保证全局最优或全部SLA/可用度改善。
 
-## 7. 与B怎么联调（最重要的下一步）
+## 7. 诊断整合状态与下一步
 
-权威Schema：`docs/satellite-diagnosis.schema.json`，来源`DiagnosisInput`；样例`docs/satellite-diagnosis.example.json`明确development_fixture，不是已交付诊断。B返回overview、causes、watch_items、impact、conclusions、missing_evidence、evidence及时间/案例/source；不负责route_options。我们的完整report再插入路径结果形成六部分。
+同学原始报告使用schema 1.1并保留完整逐分钟过程；系统稳定摘要仍使用`DiagnosisInput 1.0`。适配器检查候选类型、同案例、分析窗、快照时刻、available_at、记录存在和证据引用，再把异常概况、候选、轻微风险、正常对照及缺失证据放进六部分报告。完整1.1结果单独保存为`satellite-diagnosis-raw.json`，避免把数MB过程塞进运行请求。
 
-每条证据填evidence_id、object_id、timestamp、available_at、source_file、record_id；引用真实sample_id或event_id。候选区分candidate/supported/insufficient_evidence，支持和反对证据引用已存在ID。supported只是有证据，不是因果确认或校准概率。
+候选区分`candidate/supported/insufficient_evidence`。只有同学报告的第一优先对象同时具备多信号证据时映射为`supported`并在未人工覆盖时用于改路；轻微风险或次级候选不会一起被强制避开。supported仍只是“当前证据支持优先核查”，不是因果确认或校准概率。
 
-系统已检查候选实际类型、同案例、分析窗、快照时刻、available_at、观测记录存在与证据引用。自由JSON摘要不是自动因果验证。暂可把B的JSON粘到页面“评估时刻与诊断输入”中；也可CLI传`--diagnosis-json`。不要为了演示填造她未交付的结果。
+前端默认“自动诊断（本地时态图）”，也可选择“Neo4j MCP”或关闭。粘贴外部`DiagnosisInput`时外部JSON优先，仍保留原接口兼容性。详细映射、命令和验收见`docs/同学诊断模块_整合说明.md`。
 
-接下来依次做：
+接下来重点：
 
-1. 把Schema和开发样例发给B，确认函数参数、结束时间不含边界及证据ID。
-2. 收到代码/依赖/测试后先在独立环境运行，审查是否读取evaluation或未来恢复，核对每个结论来源。
-3. 用她的真实JSON通过现有入口联调；如结构一致无需改前端API。
-4. 再在注册的诊断处理器中接她的可调用函数（替换只接JSON的方式），或按需要封装自研诊断MCP，明确区别于网上开源Server。
-5. 在同一批案例比较仅关系规则与规则+数据对照；再索取脱敏真实数据、指标口径和人工确认根因，不能先承诺准确率。
-
-当前代码里没有她的satellite_analysis.py，查不到不是遗漏。不要重做已完成的路径模块，也不要把B尚未完成的算法当作我们系统已经做对。
+1. 在有Docker/Neo4j的环境完成官方MCP v1.6.0实机导入、`get-schema`和`read-cypher`成功调用，保留日志；未完成前只称“可选已接入”，不称“已验收”。
+2. 用同一批案例比较“关系共同依赖”与“关系+容量/环境/正常对照”，记录Top1/Top3和误报，不用evaluation参与运行诊断。
+3. 向甲方索取脱敏真实数据、指标口径和人工确认根因；用未参与调规则的案例评估，不能先承诺准确率。
+4. 优化完整诊断产物的按需展开和性能，但不删减证据链。
 
 ## 8. 测试、复现与已知结果
 
 2026-10-19原工作区实测：89项指定测试通过，前端TypeScript/生产构建通过（大chunk提示是构建警告）。浏览器发起CASE-001完成6步、100%，真实HTML下载200。这是历史验证记录，新目录仍要自己复跑。
 
 本次交接补充验证：对已提交的完整快照`9686e1d`创建不含旧运行目录/依赖的干净检出，使用已有、版本匹配的后端解释器复跑，89项测试通过（54.59秒）；11CSV的201,206行、字段和全部SHA-256校验通过；CASE-001纯路径CLI复现1个方案、10条业务调整。另把生成器输出到新临时目录，11CSV哈希与原数据完全一致。PowerShell三脚本语法检查通过，准备脚本的数组/空格路径参数已核对。没有声称在另一台全新电脑上实际联网安装过所有依赖；bootstrap安装由新环境按需执行。
+
+2026-10-22整合验证：同学模块32项通过、2项跳过（Windows软链接权限与需真实Neo4j/MCP的实时测试）；现有卫星工作流29项、其余安全回归61项通过，合计122 passed、2 skipped。新增测试确认所选快照之后的样本不会进入诊断。CASE-001端到端CLI实际成功：7步、9个候选、4个关注业务、51条去重证据、1个可行路径方案；生成主JSON、HTML和约3.68MB完整诊断JSON。当前结果使用本地时态图，不声称Neo4j MCP已成功调用。
 
 | 人工评估条件 | 真实完整MCP链结果 | 解释 |
 | --- | --- | --- |
@@ -197,7 +201,7 @@ $env:DATABASE_URL='sqlite:///:memory:'
 $env:FEISHU_EVENT_ENABLED='false'
 $env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'
 Set-Location backend
-..\.satellite-runtime\app\Scripts\python.exe -m pytest tests/test_satellite_ontology.py tests/test_satellite_routing.py tests/test_satellite_mcp_data.py tests/test_satellite_workflow.py tests/test_report_workflow.py -q -p no:cacheprovider
+..\.satellite-runtime\app\Scripts\python.exe -m pytest tests/satellite_diagnosis_module tests/test_satellite_ontology.py tests/test_satellite_routing.py tests/test_satellite_mcp_data.py tests/test_satellite_workflow.py tests/test_report_workflow.py -q -p no:cacheprovider
 Set-Location ../frontend
 npm run build
 ```
@@ -223,4 +227,4 @@ python backend/scripts/verify_satellite_dataset.py --data-root .satellite-data-b
 
 补充阅读：`docs/卫星路径模块_运行与联调.md`是实现细节；`docs/卫星分析首版_技术方案与两人分工.md`及数据包接入路线是早期方案，若冲突以本文件、当前代码和Schema为准。旧经营分析链的Mock/内置适配器不等于此次新增的真实开源MCP链。
 
-给新GPT账号的一句话：**请先读本分支HANDOFF.md，核对代码和数据可复跑，在不改写既有路径模块、不虚构B诊断结果、不读取evaluation做诊断的前提下，接着推进与同学诊断模块的联调。**
+给新GPT账号的一句话：**请先读本分支HANDOFF.md和`docs/同学诊断模块_整合说明.md`，核对自动诊断与路径流程可复跑，在不读取evaluation做运行诊断、不把候选说成因果定论的前提下，继续完成Neo4j MCP实机验收与真实数据验证。**

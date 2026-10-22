@@ -61,6 +61,8 @@ export function SatelliteWorkbench() {
   const [at, setAt] = useState("");
   const [asOf, setAsOf] = useState("");
   const [requirement, setRequirement] = useState("查看当前网络状态，并对指定待避对象评估备选通信路由，说明约束与未解决风险。");
+  const [autoDiagnosis, setAutoDiagnosis] = useState(true);
+  const [diagnosisBackend, setDiagnosisBackend] = useState<"local" | "neo4j_mcp">("local");
   const [diagnosisJson, setDiagnosisJson] = useState("");
   const [runs, setRuns] = useState<SatelliteRun[]>([]);
   const [activeRun, setActiveRun] = useState<SatelliteRun | null>(null);
@@ -187,14 +189,17 @@ export function SatelliteWorkbench() {
         const parsed: unknown = JSON.parse(diagnosisJson);
         if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("需要 JSON 对象");
         diagnosis = parsed as Record<string, unknown>;
-      } catch { setError("诊断 JSON 格式不正确，需要一个 JSON 对象；也可以留空，显示诊断待接入。"); return; }
+      } catch { setError("诊断 JSON 格式不正确，需要一个 JSON 对象；也可以留空并使用自动诊断。"); return; }
     }
-    if (!avoidObjects.length && !array(diagnosis?.causes).some((cause) => record(cause).status === "supported")) {
-      setError("请输入待避对象编号，或提供带有证据支持候选的外部诊断。系统不会自行猜测需要避开的对象。"); return;
+    const useAutoDiagnosis = autoDiagnosis && !diagnosis;
+    if (!avoidObjects.length && !array(diagnosis?.causes).some((cause) => record(cause).status === "supported") && !useAutoDiagnosis) {
+      setError("请输入待避对象编号、提供带证据的外部诊断，或启用系统自动诊断。"); return;
     }
     setSubmitting(true);
     try {
-      const created = await satelliteApi.createRun({ case_id: caseId, avoid_objects: avoidObjects, at: at || undefined, as_of: asOf || undefined, requirement: requirement.trim() || undefined, diagnosis });
+      const created = await satelliteApi.createRun({ case_id: caseId, avoid_objects: avoidObjects, at: at || undefined,
+        as_of: asOf || undefined, requirement: requirement.trim() || undefined, auto_diagnosis: useAutoDiagnosis,
+        diagnosis_graph_backend: diagnosisBackend, diagnosis });
       setActiveRun(created);
       setRuns((current) => [created, ...current.filter((item) => item.id !== created.id)]);
     } catch (problem) { setError(failure(problem)); }
@@ -220,8 +225,8 @@ export function SatelliteWorkbench() {
     </header>
 
     <section className="satelliteHero">
-      <div><p className="satelliteEyebrow"><Activity size={14} /> 文件数据与路由模拟</p><h1>看清网络状态，评估备选路径</h1><p>把运行记录、诊断输入和通信路由方案放在一起，逐项核对依据与约束。</p></div>
-      <div className="satelliteBoundary"><ShieldCheck size={20} /><div><strong>模拟评估，不执行设备切换</strong><span>当前使用合成数据。诊断模块待接入，手动待避对象不代表已确认故障。</span></div></div>
+      <div><p className="satelliteEyebrow"><Activity size={14} /> 数据诊断与路由模拟</p><h1>看清异常原因，评估备选路径</h1><p>把异常检测、候选证据、正常对照和通信路由方案放在一起，逐项核对。</p></div>
+      <div className="satelliteBoundary"><ShieldCheck size={20} /><div><strong>模拟评估，不执行设备切换</strong><span>当前使用合成数据。诊断候选有证据但不等于已经确认硬件故障。</span></div></div>
     </section>
 
     {error && <div className="satelliteError" role="alert"><AlertTriangle size={19} /><p>{error}</p><button type="button" aria-label="关闭错误提示" onClick={() => setError(null)}><X size={16} /></button></div>}
@@ -232,14 +237,18 @@ export function SatelliteWorkbench() {
           <div className="satelliteSectionHeading"><h2><GitBranch size={18} /> 分析输入</h2><span className="satelliteMuted">仅接受案例编号和参数</span></div>
           <div className="satelliteInputGrid">
             <label><span>数据案例</span><select value={caseId} onChange={(event) => setCaseId(event.target.value)} disabled={loading || !cases.length}><option value="">{loading ? "正在加载案例…" : "请选择案例"}</option>{cases.map((item) => <option value={item.case_id} key={item.case_id}>{item.case_id} · {item.dataset_kind === "synthetic" ? "合成数据" : item.dataset_kind}</option>)}</select></label>
-            <label><span>待避对象 <small>手动测试输入</small></span><input value={avoid} onChange={(event) => setAvoid(event.target.value)} placeholder="例如 SAT-20，多个编号用逗号分隔" maxLength={600} /></label>
+            <label><span>诊断方式</span><select value={autoDiagnosis ? diagnosisBackend : "off"} onChange={(event) => {
+              if (event.target.value === "off") setAutoDiagnosis(false);
+              else { setAutoDiagnosis(true); setDiagnosisBackend(event.target.value as "local" | "neo4j_mcp"); }
+            }}><option value="local">自动诊断（本地时态图）</option><option value="neo4j_mcp">自动诊断（Neo4j MCP）</option><option value="off">不自动诊断</option></select></label>
+            <label><span>待避对象 <small>可选人工覆盖</small></span><input value={avoid} onChange={(event) => setAvoid(event.target.value)} placeholder="留空则采用诊断优先对象；或填 SAT-20" maxLength={600} /></label>
           </div>
           {selectedCase && <div className="satelliteCaseInfo"><span><Satellite size={14} /> {count(selectedCase.satellites)} 颗卫星</span><span><RadioTower size={14} /> {count(selectedCase.ground_stations)} 个地面站</span><span><Network size={14} /> {count(selectedCase.links)} 条链路</span><span><Clock3 size={14} /> 分析时段 {displayTime(selectedCase.analysis_start)} 至 {displayTime(selectedCase.analysis_end_exclusive)}（不含结束时刻）</span></div>}
           <label className="satelliteRequirement"><span>本次需要查看什么</span><textarea value={requirement} onChange={(event) => setRequirement(event.target.value)} rows={2} maxLength={3000} /></label>
-          <details className="satelliteAdvanced"><summary>评估时刻与诊断输入 <ChevronRight size={14} /></summary><div className="satelliteInputGrid"><label><span>路由评估时刻 at</span><input value={at} onChange={(event) => setAt(event.target.value)} placeholder="带时区的 ISO 时间" /></label><label><span>可读取数据截止时刻 as_of</span><input value={asOf} onChange={(event) => setAsOf(event.target.value)} placeholder="带时区的 ISO 时间" /></label></div><label><span>外部诊断 JSON <small>可选，同学诊断模块的输出</small></span><textarea className="satelliteCodeInput" value={diagnosisJson} onChange={(event) => setDiagnosisJson(event.target.value)} rows={5} maxLength={200000} placeholder="留空时显示诊断待接入，不会自动生成故障结论。" /></label><p className="satelliteHelper">提供的 JSON 将明确标为外部诊断输入。系统只读取既有观测数据，不使用评测真值；这里不能配置服务器命令或任意文件路径。</p></details>
+          <details className="satelliteAdvanced"><summary>评估时刻与外部诊断输入 <ChevronRight size={14} /></summary><div className="satelliteInputGrid"><label><span>路由评估时刻 at</span><input value={at} onChange={(event) => setAt(event.target.value)} placeholder="带时区的 ISO 时间" /></label><label><span>可读取数据截止时刻 as_of</span><input value={asOf} onChange={(event) => setAsOf(event.target.value)} placeholder="带时区的 ISO 时间" /></label></div><label><span>外部诊断 JSON <small>可选；填写后优先使用它</small></span><textarea className="satelliteCodeInput" value={diagnosisJson} onChange={(event) => setDiagnosisJson(event.target.value)} rows={5} maxLength={200000} placeholder="通常留空，由已接入的同学诊断模块自动生成。" /></label><p className="satelliteHelper">自动诊断只读取观测白名单和截止时刻前的数据，不读取 evaluation。Neo4j MCP 模式需要先启动数据库、导入关系图并配置官方 Server；连接失败会明确报错，不静默退回本地图。</p></details>
           <div className="satellitePresets"><span>演示参数</span><button type="button" onClick={() => usePreset("CASE-001", "SAT-20")}>SAT-20 待避测试</button><button type="button" onClick={() => usePreset("CASE-001", "GS-01")}>GS-01 固定站约束</button><button type="button" onClick={() => usePreset("CASE-008", "SAT-20")}>CASE-008 缺证测试</button></div>
           <p className="satelliteHelper">SAT-20 参数用于拥塞绕行演示，GS-01 检查固定站约束，CASE-008 检查缺证处理。预设只填写参数，不预填诊断结论。</p>
-          <div className="satelliteSubmitRow"><p><Info size={14} /> 待避编号只是路线评估条件，不是系统自动诊断结果。</p><button type="button" className="satellitePrimaryButton" onClick={() => void submit()} disabled={submitting || loading || !caseId || busy}>{submitting ? <Loader2 size={17} className="satelliteSpin" /> : <Play size={17} />}{submitting ? "正在提交" : busy ? "执行中" : "生成分析与路由报告"}</button></div>
+          <div className="satelliteSubmitRow"><p><Info size={14} /> 自动诊断先给候选与依据，再用优先对象验算路线；候选不等于故障定论。</p><button type="button" className="satellitePrimaryButton" onClick={() => void submit()} disabled={submitting || loading || !caseId || busy}>{submitting ? <Loader2 size={17} className="satelliteSpin" /> : <Play size={17} />}{submitting ? "正在提交" : busy ? "执行中" : "生成分析与路由报告"}</button></div>
         </section>
 
         <section className="satellitePanel satelliteExecution">
@@ -260,6 +269,7 @@ export function SatelliteWorkbench() {
         <section className="satellitePanel satelliteMcpPanel">
           <div className="satelliteSectionHeading"><h2><Database size={18} /> 数据接入与 MCP 调用</h2><span className="satelliteMuted">{mcp ? mcp.default_mode === "mcp" ? "默认 MCP 模式" : "默认文件模式" : "状态未获取"}</span></div>
           <p className="satelliteHelper">{mcp?.note ?? "配置状态与真实调用分开展示；配置成功不代表已完成调用。"}</p>
+          {report?.provenance?.input_source === "integrated_diagnosis" && <p className="satelliteHelper">诊断关系查询：{report.provenance.diagnosis_graph_backend === "mcp" ? "本次由官方 Neo4j MCP 完成；完整诊断过程保存在原始诊断 JSON 产物。" : "本次使用明确标注的本地时态图模式，不冒充 MCP 调用。"}</p>}
           <div className="satelliteServerList">{mcp?.servers?.map((server) => <div key={server.name}><span className={server.enabled ? "satelliteServerDot enabled" : "satelliteServerDot"} /><strong>{server.name}</strong><span>{server.transport}</span><small>{mcpCalls.some((call) => call.server === server.name && ["success", "succeeded"].includes(String(call.status))) ? "本次已成功调用" : server.enabled ? text(server.status ?? "configured") : "未启用"}</small></div>)}</div>
           {mcp && !mcp.servers?.length && <p className="satelliteHelper">未配置外部 MCP 服务器。文件模式仍须以后端实际执行结果为准。</p>}
           {mcpCalls.length ? <div className="satelliteTableScroll"><table className="satelliteCallTable"><thead><tr><th>服务器 / 工具</th><th>所属步骤</th><th>耗时</th><th>结果</th></tr></thead><tbody>{mcpCalls.map((call, index) => <tr key={index}><td><strong>{text(call.server ?? call.server_name)}</strong><code>{text(call.tool ?? call.tool_name ?? call.name)}</code></td><td>{text(call.task)}</td><td>{text(call.duration_ms ?? call.elapsed_ms)} ms</td><td>{text(call.status ?? (typeof call.ok === "boolean" ? call.ok ? "success" : "error" : undefined))}{typeof call.error === "string" && <small className="satelliteInlineError">{call.error}</small>}</td></tr>)}</tbody></table></div> : <div className="satelliteNoCalls">当前运行没有返回 MCP 调用记录。不会用工具标签代替真实调用。</div>}
@@ -268,10 +278,10 @@ export function SatelliteWorkbench() {
 
       <aside className="satelliteReportColumn" aria-label="卫星分析报告">
         <div className="satelliteReportHeader"><div><FileJson size={20} /><h2>分析报告</h2></div><span>六部分结果</span></div>
-        <div className="satelliteReportNotice"><strong>{report?.diagnosis_status === "provided" ? "已接收外部诊断" : "诊断模块待接入"}</strong><p>{report?.diagnosis_status === "provided" ? "原因与风险来自提供的诊断 JSON，尚不代表经过本系统独立确认。" : "当前只展示观测与手动条件下的路由模拟，不自动确认异常原因。"}</p>{report?.provenance?.diagnosis_is_fixture && <b>诊断数据标记为演示 fixture，不能用于真实故障结论。</b>}</div>
-        {report && <div className="satelliteReportMeta"><span>{report.case_id} · {report.dataset_kind === "synthetic" ? "合成数据" : report.dataset_kind}</span><span>评估时刻 {displayTime(report.at)}</span><span>数据截止 {displayTime(report.as_of)}</span><span>输入来源：{report.provenance?.input_source === "diagnosis_json" ? "外部诊断 JSON" : "手动评估条件"}</span></div>}
+        <div className="satelliteReportNotice"><strong>{report?.provenance?.input_source === "integrated_diagnosis" ? "已完成自动诊断" : report?.diagnosis_status === "provided" ? "已接收外部诊断" : "本次未启用诊断"}</strong><p>{report?.provenance?.input_source === "integrated_diagnosis" ? "已运行同学交付的诊断代码，逐项核对观测证据，再把优先候选交给路径模块。" : report?.diagnosis_status === "provided" ? "原因与风险来自提供的诊断 JSON，尚不代表因果已经确认。" : "当前只展示观测与手动条件下的路由模拟，不自动确认异常原因。"}</p>{report?.provenance?.diagnosis_is_fixture && <b>诊断数据标记为演示 fixture，不能用于真实故障结论。</b>}</div>
+        {report && <div className="satelliteReportMeta"><span>{report.case_id} · {report.dataset_kind === "synthetic" ? "合成数据" : report.dataset_kind}</span><span>评估时刻 {displayTime(report.at)}</span><span>数据截止 {displayTime(report.as_of)}</span><span>输入来源：{report.provenance?.input_source === "integrated_diagnosis" ? `自动诊断（${report.provenance.diagnosis_graph_backend === "mcp" ? "Neo4j MCP" : "本地时态图"}）` : report.provenance?.input_source === "diagnosis_json" ? "外部诊断 JSON" : "手动评估条件"}</span></div>}
         <ReportPart number="01" title="异常概况"><p>{report?.overview?.summary ?? "运行后展示观测到的网络状态，不预填异常数量或下降幅度。"}</p>{array(report?.overview?.metrics).length > 0 && <div className="satelliteMetricList">{report!.overview.metrics!.map((metric, index) => <div key={index}><span>{metric.label}</span><strong>{text(metric.value)}<small>{metric.unit}</small></strong></div>)}</div>}{array(report?.overview?.observations).length > 0 && <button type="button" className="satelliteTextButton" onClick={() => setEvidence({ title: "原始观测摘要", value: report?.overview.observations })}>查看观测记录 <ChevronRight size={13} /></button>}</ReportPart>
-        <ReportPart number="02" title="可能原因"><ReportItems section={report?.causes} empty="诊断待接入。手动输入待避对象不会生成原因结论。" onEvidence={openEvidence} /></ReportPart>
+        <ReportPart number="02" title="可能原因"><ReportItems section={report?.causes} empty="本次没有诊断原因结论。手动输入待避对象本身不会生成根因。" onEvidence={openEvidence} /></ReportPart>
         <ReportPart number="03" title="需要关注的对象"><ReportItems section={report?.watch_items} empty="尚无诊断提供的风险提示。潜在风险不等于已经发生故障。" onEvidence={openEvidence} /></ReportPart>
         <ReportPart number="04" title="备选通信路由"><p>{report ? `${array(report.route_options?.proposals).length} 项路径方案，${text(report.route_options?.status)}。` : "根据待避对象，评估可用路径与容量约束。"}</p><p className="satelliteHelper">下方与左侧展示的前后变化均为模拟估计，不是已经实施的优化效果。</p>{strings(report?.route_options?.limitations).map((item, index) => <p key={index} className="satelliteRiskLine"><AlertTriangle size={13} />{item}</p>)}</ReportPart>
         <ReportPart number="05" title="影响与其他分析"><ReportItems section={report?.impact} empty="等待运行结果，展示受到影响的业务及相关约束。" onEvidence={openEvidence} /></ReportPart>

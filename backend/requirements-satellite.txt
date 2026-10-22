@@ -2,3 +2,4 @@
 jsonschema==4.26.0
 mcp==1.29.0
 pydantic==2.12.5
+neo4j>=5.27,<7

@@ -136,7 +136,7 @@ def test_manual_case_runs_without_fabricating_diagnosis(harness, monkeypatch):
     run = completed_run(harness)
     assert run["status"] == "succeeded", run["error"]
     assert run["workflow_type"] == "satellite_planning"
-    assert len(run["tasks"]) == 6  # The seventh step exists only with external diagnosis.
+    assert len(run["tasks"]) == 6  # A seventh step exists when external or automatic diagnosis is enabled.
     assert all(task["status"] == "succeeded" for task in run["tasks"])
     assert run["summary"]["progress"] == 100
     report = run["summary"]["satellite_report"]
@@ -153,6 +153,33 @@ def test_manual_case_runs_without_fabricating_diagnosis(harness, monkeypatch):
     assert all(task["evidence"]["execution_mode"] == "file" for task in run["tasks"])
     assert all(task["evidence"]["mcp_calls"] == [] for task in run["tasks"])
     assert opened and "observed/node_metrics.csv" in opened
+
+
+def test_integrated_diagnosis_drives_route_plan_and_keeps_raw_audit(harness):
+    run = completed_run(harness, payload(avoid_objects=[], auto_diagnosis=True,
+        diagnosis_graph_backend="local"))
+    assert run["status"] == "succeeded", run["error"]
+    assert [task["task_key"] for task in run["tasks"]] == [
+        "load_snapshot", "validate_domain", "diagnose_network", "plan_routes",
+        "build_report", "publish_report", "verify_delivery",
+    ]
+    diagnosis_task = next(task for task in run["tasks"] if task["task_key"] == "diagnose_network")
+    assert diagnosis_task["evidence"]["provider"] == "collaborator_satellite_diagnosis"
+    assert diagnosis_task["evidence"]["priority_object"] == "SAT-20"
+    assert diagnosis_task["evidence"]["selected_avoid_objects"] == ["SAT-20"]
+    report = run["summary"]["satellite_report"]
+    assert report["provenance"]["input_source"] == "integrated_diagnosis"
+    assert report["provenance"]["avoid_objects"] == ["SAT-20"]
+    assert report["route_options"]["status"] == "feasible"
+    assert [item["object_id"] for item in report["causes"]["items"] if item["status"] == "supported"] == ["SAT-20"]
+    assert len(report["watch_items"]["items"]) == 4
+    evidence_ids = [item["evidence_id"] for item in report["evidence"]]
+    assert len(evidence_ids) == len(set(evidence_ids)) and evidence_ids
+    names = {item["name"] for item in run["artifacts"]}
+    assert names == {"satellite-report.json", "satellite-report.html", "satellite-diagnosis-raw.json"}
+    raw = json.loads((harness.output / run["id"] / "satellite-diagnosis-raw.json").read_text(encoding="utf-8"))
+    assert raw["schema_version"] == "1.1" and raw["graph_backend"] == "local_test_only"
+    assert raw["conclusion_and_missing_evidence"]["priority_object"] == "SAT-20"
 
 
 @pytest.mark.parametrize("invalid", ["wrong_object_type", "later_analysis_window"])

@@ -12,10 +12,13 @@ ROOT = Path(__file__).resolve().parents[2]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--case", default="CASE-001")
-    parser.add_argument("--avoid", nargs="+", default=["SAT-20"])
+    parser.add_argument("--avoid", nargs="+", default=None, help="optional manual route-avoidance override")
     parser.add_argument("--at")
     parser.add_argument("--as-of")
     parser.add_argument("--diagnosis-json", type=Path)
+    parser.add_argument("--auto-diagnosis", action=argparse.BooleanOptionalAction, default=True,
+                        help="run the integrated collaborator module (default: enabled)")
+    parser.add_argument("--diagnosis-backend", choices=("local", "neo4j_mcp"), default="local")
     parser.add_argument("--full", action="store_true", help="print the full structured report")
     args = parser.parse_args()
     runtime = ROOT / ".satellite-runtime"
@@ -31,7 +34,10 @@ def main():
     from sqlalchemy import select
     Base.metadata.create_all(engine)
     diagnosis = json.loads(args.diagnosis_json.read_text(encoding="utf-8-sig")) if args.diagnosis_json else None
-    payload = SatelliteRunCreate(case_id=args.case, avoid_objects=args.avoid, at=args.at, as_of=args.as_of, diagnosis=diagnosis)
+    auto_diagnosis = bool(args.auto_diagnosis and diagnosis is None)
+    avoid = args.avoid if args.avoid is not None else ([] if auto_diagnosis or diagnosis else ["SAT-20"])
+    payload = SatelliteRunCreate(case_id=args.case, avoid_objects=avoid, at=args.at, as_of=args.as_of,
+        auto_diagnosis=auto_diagnosis, diagnosis_graph_backend=args.diagnosis_backend, diagnosis=diagnosis)
     identity = create_satellite_run(payload)
     execute_satellite_run(identity)
     with session_scope() as session:

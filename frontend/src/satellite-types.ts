@@ -43,7 +43,9 @@ export type SatelliteReport = {
   impact: SatelliteSection;
   conclusions: { items?: string[]; missing_evidence?: string[] };
   provenance: {
-    input_source: "manual" | "diagnosis_json";
+    input_source: "manual" | "diagnosis_json" | "integrated_diagnosis";
+    diagnosis_provider?: string | null;
+    diagnosis_graph_backend?: string | null;
     diagnosis_is_fixture: boolean;
   };
   topology?: {
@@ -68,6 +70,8 @@ export type SatelliteRunInput = {
   at?: string;
   as_of?: string;
   requirement?: string;
+  auto_diagnosis?: boolean;
+  diagnosis_graph_backend?: "local" | "neo4j_mcp";
   diagnosis?: Record<string, unknown>;
 };
 

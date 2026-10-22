@@ -1,0 +1,17 @@
+services:
+  neo4j:
+    image: neo4j:2026.09.0-community
+    ports:
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7687:7687"
+    environment:
+      NEO4J_AUTH: "neo4j/${NEO4J_PASSWORD:?set NEO4J_PASSWORD}"
+    volumes:
+      - neo4j_satellite_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:7474/"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+volumes:
+  neo4j_satellite_data:

@@ -89,6 +89,8 @@ class SatelliteRunCreate(BaseModel):
     max_utilization_pct: float = Field(default=85, gt=0, le=100, allow_inf_nan=False)
     max_latency_ms: float = Field(default=150, gt=0, le=10000, allow_inf_nan=False)
     max_options: int = Field(default=3, ge=1, le=5)
+    auto_diagnosis: bool = False
+    diagnosis_graph_backend: Literal["local", "neo4j_mcp"] = "local"
     diagnosis: DiagnosisInput | None = None
 
     @field_validator("at", "as_of")
@@ -116,8 +118,10 @@ class SatelliteRunCreate(BaseModel):
             raise ValueError("诊断结果与所选案例不一致")
         if self.diagnosis and self.as_of and self.diagnosis.as_of > self.as_of:
             raise ValueError("诊断结果使用了本次截止时间之后的信息")
+        if self.diagnosis and self.auto_diagnosis:
+            raise ValueError("外部诊断JSON与系统自动诊断不能同时启用")
         if not self.avoid_objects and self.diagnosis:
             self.avoid_objects = [c.object_id for c in self.diagnosis.causes if c.status == "supported"]
-        if not self.avoid_objects:
-            raise ValueError("请指定待避对象，或提供有证据支持的诊断候选；系统不会猜测同学的诊断结果")
+        if not self.avoid_objects and not self.auto_diagnosis:
+            raise ValueError("请指定待避对象、提供外部诊断，或启用系统自动诊断")
         return self
