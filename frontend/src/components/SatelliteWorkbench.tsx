@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity, AlertTriangle, ArrowRight, CheckCircle2, ChevronRight, Clock3, Database,
   Download, FileJson, GitBranch, History, Info, Loader2, Network, Play, RadioTower,
-  RefreshCw, Route, Satellite, ShieldCheck, X, XCircle,
+  RefreshCw, Route, Satellite, ShieldCheck, TrendingDown, X, XCircle, Zap,
 } from "lucide-react";
 import { satelliteApi } from "../satellite-api";
-import type { SatelliteCase, SatelliteMcpStatus, SatelliteReport, SatelliteRun, SatelliteSection } from "../satellite-types";
+import type { SatelliteCase, SatelliteMcpStatus, SatelliteReport, SatelliteRun } from "../satellite-types";
 
 const STATUS: Record<string, string> = {
   planning: "正在准备", running: "正在执行", succeeded: "已完成", failed: "执行失败",
@@ -32,6 +32,10 @@ const FIELD_LABELS: Record<string, string> = {
   offered_mbps: "业务请求流量（Mbps）", estimated_total_changed_latency_ms: "变更业务总预计时延（ms）",
   latency_limit_ms: "时延上限（ms）", estimated_latency_within_limit: "预计时延满足约束",
   availability_sla_evaluated: "已验证可用度 SLA", capacity_mbps: "容量（Mbps）",
+  effective_capacity_mbps: "有效容量（Mbps）", ingress_mbps: "到达流量（Mbps）",
+  forwarded_mbps: "已转发流量（Mbps）", discarded_mbps: "丢弃流量（Mbps）",
+  demand_utilization_pct: "容量占用（%）", availability_pct: "业务可用度（%）",
+  queue_depth_mb: "排队数据量（MB）", event_code: "告警事件",
 };
 
 function record(value: unknown): Record<string, unknown> {
@@ -45,6 +49,13 @@ function text(value: unknown): string {
   if (typeof value === "number") return Number.isFinite(value) ? value.toLocaleString("zh-CN", { maximumFractionDigits: 3 }) : "—";
   if (typeof value === "string") return STATUS[value] ?? value;
   return JSON.stringify(value);
+}
+function number(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+function fixed(value: unknown, digits = 1): string {
+  const parsed = number(value);
+  return parsed === undefined ? "—" : parsed.toFixed(digits);
 }
 function failure(error: unknown): string { return error instanceof Error ? error.message : "请求失败，请稍后重试。"; }
 function count(value: number | string[] | undefined): number | string { return Array.isArray(value) ? value.length : value ?? "—"; }
@@ -153,6 +164,10 @@ export function SatelliteWorkbench() {
   }, [activeRun?.id, busy]);
 
   const mcpCalls = useMemo<Array<Record<string, unknown>>>(() => (activeRun?.tasks ?? []).flatMap((task) => array(task.evidence?.mcp_calls).map((call) => ({ task: task.title, ...record(call) }))), [activeRun]);
+  const diagnosisEvidence = useMemo(() => {
+    const task = (activeRun?.tasks ?? []).find((item) => item.task_key === "diagnose_network");
+    return array(task?.evidence?.evidence).map(record);
+  }, [activeRun]);
   const total = activeRun?.tasks?.length ?? 0;
   const completed = activeRun?.tasks?.filter((task) => task.status === "succeeded").length ?? 0;
   const reportedProgress = activeRun?.summary?.progress;
@@ -280,17 +295,17 @@ export function SatelliteWorkbench() {
         <div className="satelliteReportHeader"><div><FileJson size={20} /><h2>分析报告</h2></div><span>六部分结果</span></div>
         <div className="satelliteReportNotice"><strong>{report?.provenance?.input_source === "integrated_diagnosis" ? "已完成自动诊断" : report?.diagnosis_status === "provided" ? "已接收外部诊断" : "本次未启用诊断"}</strong><p>{report?.provenance?.input_source === "integrated_diagnosis" ? "已运行同学交付的诊断代码，逐项核对观测证据，再把优先候选交给路径模块。" : report?.diagnosis_status === "provided" ? "原因与风险来自提供的诊断 JSON，尚不代表因果已经确认。" : "当前只展示观测与手动条件下的路由模拟，不自动确认异常原因。"}</p>{report?.provenance?.diagnosis_is_fixture && <b>诊断数据标记为演示 fixture，不能用于真实故障结论。</b>}</div>
         {report && <div className="satelliteReportMeta"><span>{report.case_id} · {report.dataset_kind === "synthetic" ? "合成数据" : report.dataset_kind}</span><span>评估时刻 {displayTime(report.at)}</span><span>数据截止 {displayTime(report.as_of)}</span><span>输入来源：{report.provenance?.input_source === "integrated_diagnosis" ? `自动诊断（${report.provenance.diagnosis_graph_backend === "mcp" ? "Neo4j MCP" : "本地时态图"}）` : report.provenance?.input_source === "diagnosis_json" ? "外部诊断 JSON" : "手动评估条件"}</span></div>}
-        <ReportPart number="01" title="异常概况"><p>{report?.overview?.summary ?? "运行后展示观测到的网络状态，不预填异常数量或下降幅度。"}</p>{array(report?.overview?.metrics).length > 0 && <div className="satelliteMetricList">{report!.overview.metrics!.map((metric, index) => <div key={index}><span>{metric.label}</span><strong>{text(metric.value)}<small>{metric.unit}</small></strong></div>)}</div>}{array(report?.overview?.service_comparison).length > 0 && <button type="button" className="satelliteTextButton" onClick={() => setEvidence({ title: "业务指标对比：基线、分析期与持续时间", value: { policy: report?.overview.indicator_policy, summary: report?.overview.indicator_summary, services: report?.overview.service_comparison } })}>查看指标明细与判断口径 <ChevronRight size={13} /></button>}{array(report?.overview?.observations).length > 0 && <button type="button" className="satelliteTextButton" onClick={() => setEvidence({ title: "原始观测摘要", value: report?.overview.observations })}>查看观测记录 <ChevronRight size={13} /></button>}</ReportPart>
-        <ReportPart number="02" title="可能原因"><ReportItems section={report?.causes} empty="本次没有诊断原因结论。手动输入待避对象本身不会生成根因。" onEvidence={openEvidence} /></ReportPart>
-        <ReportPart number="03" title="需要关注的对象"><ReportItems section={report?.watch_items} empty="尚无诊断提供的风险提示。潜在风险不等于已经发生故障。" onEvidence={openEvidence} /></ReportPart>
-        <ReportPart number="04" title="备选通信路由"><p>{report ? `${array(report.route_options?.proposals).length} 项路径方案，${text(report.route_options?.status)}。` : "根据诊断优先对象评估可用路径与容量约束。"}</p><p className="satelliteHelper">只生成模拟建议，不执行真实切换，也不预测切换后的可用度。</p>{report && <button type="button" className="satelliteTextButton" onClick={() => setEvidence({ title: "备选路线、容量对照与限制条件", value: report.route_options })}>查看路线详情 <ChevronRight size={13} /></button>}</ReportPart>
-        <ReportPart number="05" title="影响与其他分析"><ReportItems section={report?.impact} empty="等待运行结果，展示受到影响的业务及相关约束。" onEvidence={openEvidence} /></ReportPart>
-        <ReportPart number="06" title="结论与待查事项">{strings(report?.conclusions?.items).length ? <ul>{strings(report?.conclusions?.items).slice(0, 3).map((item, index) => <li key={index}>{item}</li>)}</ul> : <p>尚无结论。先完成数据读取，再核查可行性与证据缺口。</p>}{strings(report?.conclusions?.missing_evidence).length > 0 && <div className="satelliteMissing"><strong>还缺哪些证据</strong><ul>{strings(report?.conclusions?.missing_evidence).slice(0, 3).map((item, index) => <li key={index}>{item}</li>)}</ul></div>}{report && <button type="button" className="satelliteTextButton" onClick={() => setEvidence({ title: "完整结论、待补证据与规则执行情况", value: { conclusions: report.conclusions, rules: report.rule_execution } })}>查看完整结论与规则 <ChevronRight size={13} /></button>}</ReportPart>
+        <ReportPart number="01" title="异常概况"><AnomalyOverview report={report} onDetail={(value) => setEvidence({ title: "业务可用度明细与判断标准", value })} /></ReportPart>
+        <ReportPart number="02" title="根因候选与异常原因"><CauseOverview report={report} evidence={diagnosisEvidence} onDetail={openEvidence} /></ReportPart>
+        <ReportPart number="03" title="潜在或轻微异常"><WatchOverview report={report} onDetail={openEvidence} /></ReportPart>
+        <ReportPart number="04" title="备选通信路径"><RouteOverview report={report} onDetail={(value) => setEvidence({ title: "完整路线、容量与限制条件", value })} /></ReportPart>
+        <ReportPart number="05" title="影响与正常对照"><ImpactOverview report={report} onDetail={openEvidence} /></ReportPart>
+        <ReportPart number="06" title="结论与待补证据"><ConclusionOverview report={report} onDetail={(value) => setEvidence({ title: "完整结论与规则执行情况", value })} /></ReportPart>
         <div className="satelliteDownloads"><h3><Download size={15} /> 报告与运行记录</h3>{activeRun?.artifacts?.length ? activeRun.artifacts.map((artifact) => <a key={artifact.id} href={satelliteApi.artifactUrl(artifact.download_url)} target="_blank" rel="noreferrer"><FileJson size={16} /><span>{typeof artifact.metadata?.display_name === "string" ? artifact.metadata.display_name : artifact.name}<small>{artifact.mime_type.includes("json") ? "结构化 JSON" : artifact.mime_type.includes("html") ? "可阅读 HTML" : artifact.kind}</small></span><Download size={14} /></a>) : <p>运行完成后，下载后端实际生成的 JSON / HTML 文件。</p>}</div>
       </aside>
     </div>
     <footer className="satelliteFooter"><span>本体关系与能力编排</span><p>合成数据用于验证流程。诊断结论、路由模拟和真实设备操作严格区分。</p></footer>
-    {evidence && <div className="satelliteEvidenceOverlay" role="dialog" aria-modal="true" aria-label={evidence.title} onClick={() => setEvidence(null)}><section onClick={(event) => event.stopPropagation()}><header><div><span>执行记录与证据</span><h2>{evidence.title}</h2></div><button type="button" className="satelliteIconButton" aria-label="关闭证据" onClick={() => setEvidence(null)}><X size={20} /></button></header><p>以下内容来自当前运行返回的数据。引用编号只有在返回了对应来源记录时，才构成可追溯证据。</p><JsonDetails value={evidence.value} expanded /><button type="button" className="satellitePrimaryButton" onClick={() => setEvidence(null)}>返回报告</button></section></div>}
+    {evidence && <div className="satelliteEvidenceOverlay" role="dialog" aria-modal="true" aria-label={evidence.title} onClick={() => setEvidence(null)}><section onClick={(event) => event.stopPropagation()}><header><div><span>结论依据</span><h2>{evidence.title}</h2></div><button type="button" className="satelliteIconButton" aria-label="关闭证据" onClick={() => setEvidence(null)}><X size={20} /></button></header><p>先看下面的中文摘要；确需核对接口字段时，再展开底部技术数据。</p><EvidenceSummary value={evidence.value} /><JsonDetails value={evidence.value} /><button type="button" className="satellitePrimaryButton" onClick={() => setEvidence(null)}>返回报告</button></section></div>}
   </main>;
 }
 
@@ -307,15 +322,88 @@ function ReportPart({ number, title, children }: { number: string; title: string
 function JsonDetails({ value, expanded = false }: { value: unknown; expanded?: boolean }) {
   return <details className="satelliteJson" open={expanded}><summary>结构化数据与原始字段</summary><pre>{JSON.stringify(value ?? null, null, 2)}</pre></details>;
 }
-function ReportItems({ section, empty, onEvidence }: { section?: SatelliteSection; empty: string; onEvidence: (title: string, value: unknown) => void }) {
-  const items = array(section?.items);
-  const visible = items.slice(0, 3);
-  return <>{section?.note && <p>{section.note}</p>}{items.length ? <div className="satelliteReportItems">{visible.map((value, index) => {
-    const item = record(value);
-    const title = text(item.title ?? item.name ?? item.object_id ?? item.service_id ?? item.candidate_id ?? item.hypothesis ?? item.cause ?? `分析项 ${index + 1}`);
-    const description = item.description ?? item.reason ?? item.mechanism ?? item.note ?? item.summary;
-    return <article key={index}><strong>{title}</strong>{description !== undefined && <p>{text(description)}</p>}{item.status !== undefined && <span className="satelliteItemState">{text(item.status)}</span>}<button type="button" className="satelliteTextButton" onClick={() => onEvidence(title, item)}>查看依据与字段 <ChevronRight size={12} /></button></article>;
-  })}{items.length > visible.length && <button type="button" className="satelliteTextButton" onClick={() => onEvidence(`全部 ${items.length} 项分析结果`, items)}>查看其余 {items.length - visible.length} 项 <ChevronRight size={12} /></button>}</div> : <p className="satelliteHelper">{empty}</p>}</>;
+function AnomalyOverview({ report, onDetail }: { report?: SatelliteReport; onDetail: (value: unknown) => void }) {
+  const rows = array(report?.overview?.service_comparison).map(record);
+  if (!report || !rows.length) return <p className="satelliteHelper">运行后显示异常数量、下降幅度和逐业务对比。</p>;
+  const major = rows.filter((row) => row.classification === "major");
+  const watch = rows.filter((row) => row.classification === "watch");
+  const normal = rows.filter((row) => row.classification !== "major" && row.classification !== "watch");
+  const shown = major.slice(0, 5);
+  const baseline = major.reduce((sum, row) => sum + (number(row.baseline_availability_pct) ?? 0), 0) / Math.max(1, major.length);
+  const analysis = major.reduce((sum, row) => sum + (number(row.analysis_mean_availability_pct) ?? 0), 0) / Math.max(1, major.length);
+  return <><div className="satelliteAlertBanner"><AlertTriangle size={18} /><div><strong>检测到 {major.length} 个业务发生重大下降</strong><span>异常窗口内持续下降，需要进行共同依赖与资源证据排查</span></div></div><div className="satelliteHeadlineMetrics"><MetricCard label="重大异常" value={major.length} unit="个" tone="danger" /><MetricCard label="轻微异常" value={watch.length} unit="个" tone="warning" /><MetricCard label="正常对照" value={normal.length} unit="个" tone="ok" /><MetricCard label="平均下降" value={fixed(baseline - analysis, 2)} unit="百分点" tone="blue" /></div><div className="satelliteOverviewGrid"><div className="satelliteMiniTable"><div className="satelliteMiniTableHead"><span>业务</span><span>基线</span><span>当前</span><span>下降</span></div>{shown.map((row) => <div className="satelliteMiniTableRow" key={text(row.service_id)}><strong>{text(row.service_id)}</strong><span>{fixed(row.baseline_availability_pct, 2)}%</span><span>{fixed(row.analysis_mean_availability_pct, 2)}%</span><em>↓ {fixed(row.mean_drop_pp, 2)}</em></div>)}</div><div className="satelliteDropChart"><strong>下降幅度（百分点）</strong>{shown.map((row) => { const drop = number(row.mean_drop_pp) ?? 0; return <div key={text(row.service_id)}><span>{text(row.service_id)}</span><i><b style={{ width: `${Math.min(100, drop / 8 * 100)}%` }} /></i><em>{drop.toFixed(2)}</em></div>; })}</div></div><button type="button" className="satelliteTextButton" onClick={() => onDetail({ policy: report.overview.indicator_policy, summary: report.overview.indicator_summary, services: rows })}>查看全部 {rows.length} 个业务及判断标准 <ChevronRight size={13} /></button></>;
+}
+
+function MetricCard({ label, value, unit, tone }: { label: string; value: unknown; unit: string; tone: string }) {
+  return <div className={`satelliteHeadlineMetric tone-${tone}`}><span>{label}</span><strong>{text(value)}<small>{unit}</small></strong></div>;
+}
+
+function CauseOverview({ report, evidence, onDetail }: { report?: SatelliteReport; evidence: Record<string, unknown>[]; onDetail: (title: string, value: unknown) => void }) {
+  const items = array(report?.causes?.items).map(record);
+  if (!items.length) return <p className="satelliteHelper">本次没有返回原因候选。人工指定待避对象不会被当作诊断结论。</p>;
+  const primary = items.find((item) => item.status === "supported") ?? items[0];
+  const others = items.filter((item) => item !== primary).slice(0, 4);
+  const route = record(array(report?.route_options?.proposals)[0]);
+  const changes = array(route.changes).map(record);
+  const sources = [...new Set(changes.map((change) => text(array(change.before_nodes)[0])).filter((id) => id !== "—"))].slice(0, 5);
+  const stations = [...new Set(changes.map((change) => { const nodes = array(change.before_nodes); return text(nodes[nodes.length - 1]); }).filter((id) => id !== "—"))];
+  const evidenceText = evidence.filter((row) => row.object_id === primary.object_id).map((row) => text(row.description));
+  const metric = (name: string) => { const match = evidenceText.find((entry) => entry.startsWith(`${name}=`))?.match(/=([\d.]+)/); return match?.[1] ?? "—"; };
+  return <><div className="satelliteCauseLead"><div><span>优先排查候选</span><strong>{text(primary.object_id)}</strong><small>{text(primary.status)}</small></div><p><Zap size={16} /> {text(primary.mechanism)}</p></div><div className="satelliteCauseMetrics"><MetricCard label="到达流量" value={metric("ingress_mbps")} unit="Mbps" tone="danger" /><MetricCard label="有效容量" value={metric("effective_capacity_mbps")} unit="Mbps" tone="blue" /><MetricCard label="容量占用" value={metric("demand_utilization_pct")} unit="%" tone="warning" /><MetricCard label="丢弃流量" value={metric("discarded_mbps")} unit="Mbps" tone="danger" /></div><div className="satelliteRelationMap"><div className="satelliteRelationSide"><small>异常业务入口</small>{sources.map((source) => <span key={source}>{source}</span>)}</div><div className="satelliteRelationArrow">→</div><button type="button" className="satelliteRootNode" onClick={() => onDetail(text(primary.object_id), primary)}><Satellite size={19} /><strong>{text(primary.object_id)}</strong><small>共同经过</small></button><div className="satelliteRelationArrow">→</div><div className="satelliteRelationSide is-station"><small>到达地面站</small>{stations.map((station) => <span key={station}>{station}</span>)}</div></div><div className="satelliteCandidateStrip">{others.map((item) => <button type="button" key={text(item.object_id)} onClick={() => onDetail(text(item.object_id), item)}><strong>{text(item.object_id)}</strong><span>{item.object_type === "ground_station" ? "地面站候选" : item.object_type === "link" ? "链路候选" : "卫星候选"}</span><small>{text(item.status)}</small></button>)}</div><p className="satelliteExplainLine"><Info size={14} /> 地面站和链路也进入候选，但存在正常业务作为反例，因此当前优先核查 SAT-20，并非宣告它已损坏。</p></>;
+}
+
+function WatchOverview({ report, onDetail }: { report?: SatelliteReport; onDetail: (title: string, value: unknown) => void }) {
+  const items = array(report?.watch_items?.items).map(record);
+  if (!items.length) return <p className="satelliteHelper">没有发现低于重大阈值但需要关注的持续下降。</p>;
+  return <><p className="satelliteSectionIntro">未达到“重大异常”阈值，但连续下降，建议继续观察。</p><div className="satelliteWatchGrid">{items.slice(0, 4).map((item) => <button type="button" key={text(item.service_id)} onClick={() => onDetail(text(item.service_id), item)}><div><strong>{text(item.service_id)}</strong><span>{fixed(item.longest_contiguous_minutes ?? item.duration_minutes, 0)} 分钟</span></div><p><b>{fixed(item.baseline_availability_pct, 2)}%</b><ArrowRight size={13} /><b>{fixed(item.analysis_mean_availability_pct, 2)}%</b></p><small>下降 {fixed(item.mean_drop_pp, 2)} 个百分点 · 关联 {text(item.supporting_resource ?? item.resource_id)}</small></button>)}</div></>;
+}
+
+function RouteOverview({ report, onDetail }: { report?: SatelliteReport; onDetail: (value: unknown) => void }) {
+  const proposal = record(array(report?.route_options?.proposals)[0]);
+  const changes = array(proposal.changes).map(record);
+  if (!changes.length) return <p className="satelliteHelper">当前没有可展示的备选路径（{text(report?.route_options?.status)}）。</p>;
+  const resources = array(proposal.resources).map(record);
+  const relay = resources.find((row) => row.object_id === "SAT-21");
+  const risks = array(proposal.unresolved_risks ?? report?.route_options?.unresolved_risks).map(record);
+  return <><div className="satelliteRouteSummary"><div><Route size={19} /><span><strong>{changes.length} 条业务可模拟改路</strong><small>避开 SAT-20，统一经 SAT-21 转发</small></span></div><div className="satelliteLoadGauge"><span>SAT-21 模拟负载</span><strong>{fixed(relay?.estimated_demand_utilization_pct, 1)}%</strong><i><b style={{ width: `${Math.min(100, number(relay?.estimated_demand_utilization_pct) ?? 0)}%` }} /></i></div></div><div className="satelliteRouteRows">{changes.slice(0, 3).map((change) => <div key={text(change.service_id)}><strong>{text(change.service_id)}</strong><div><PathPills label="原" nodes={change.before_nodes} tone="old" /><PathPills label="新" nodes={change.after_nodes} tone="new" /></div><span>{fixed(change.estimated_latency_ms, 1)} ms</span></div>)}</div>{risks.length > 0 && <div className="satelliteRouteRisk"><AlertTriangle size={15} /><span><strong>仍需注意 {text(risks[0].object_id)}</strong> 当前容量占用约 {fixed(risks[0].estimated_demand_utilization_pct, 1)}%，本方案不能解决该风险。</span></div>}<button type="button" className="satelliteTextButton" onClick={() => onDetail(report?.route_options)}>查看其余 {Math.max(0, changes.length - 3)} 条路线与容量约束 <ChevronRight size={13} /></button></>;
+}
+
+function PathPills({ label, nodes, tone }: { label: string; nodes: unknown; tone: string }) {
+  return <p className={`satellitePathPills tone-${tone}`}><em>{label}</em>{array(nodes).map((node, index) => <span key={`${text(node)}-${index}`}>{index > 0 && <ArrowRight size={11} />}<b>{text(node)}</b></span>)}</p>;
+}
+
+function ImpactOverview({ report, onDetail }: { report?: SatelliteReport; onDetail: (title: string, value: unknown) => void }) {
+  const items = array(report?.impact?.items).map(record);
+  const overview = items.find((item) => array(item.affected_service_ids).length || array(item.healthy_service_ids).length) ?? {};
+  const affected = strings(overview.affected_service_ids);
+  const healthy = strings(overview.healthy_service_ids);
+  const controls = items.filter((item) => item.candidate_id).slice(0, 3);
+  if (!items.length) return <p className="satelliteHelper">等待影响范围和正常对照结果。</p>;
+  return <><div className="satelliteImpactNumbers"><div className="is-affected"><TrendingDown size={18} /><span><strong>{affected.length}</strong><small>受影响业务</small></span></div><div className="is-healthy"><CheckCircle2 size={18} /><span><strong>{healthy.length}</strong><small>正常对照业务</small></span></div></div><div className="satelliteServiceChips"><span>受影响</span><div>{affected.map((id) => <b key={id}>{id}</b>)}</div></div><div className="satelliteServiceChips is-healthy"><span>正常对照</span><div>{healthy.map((id) => <b key={id}>{id}</b>)}</div></div><div className="satelliteControlCards">{controls.map((item) => { const normals = strings(item.same_resource_normal); return <button type="button" key={text(item.candidate_id)} onClick={() => onDetail(text(item.candidate_id), item)}><strong>{text(item.candidate_id)}</strong><span>{normals.length ? `${normals.length} 条同资源业务正常，削弱该候选` : "没有同资源正常业务反例"}</span><small>{normals.length ? "优先级降低" : "仍需重点核查"}</small></button>; })}</div></>;
+}
+
+function ConclusionOverview({ report, onDetail }: { report?: SatelliteReport; onDetail: (value: unknown) => void }) {
+  const causes = array(report?.causes?.items).map(record);
+  const primary = causes.find((item) => item.status === "supported");
+  const missing = strings(report?.conclusions?.missing_evidence);
+  const passed = number(report?.rule_execution?.summary?.passed) ?? 0;
+  return <><div className="satelliteConclusionLead"><CheckCircle2 size={21} /><div><span>本次判断</span><strong>{primary ? `优先排查 ${text(primary.object_id)} 的容量过载` : "当前证据不足，保留候选"}</strong><p>这是“有证据支持的排查顺序”，不是已经确认的硬件故障。</p></div></div><div className="satelliteConclusionSteps"><div><b>1</b><span><strong>先查原因</strong><small>核对 SAT-20 队列、丢弃与逐业务损失</small></span></div><div><b>2</b><span><strong>再做绕行</strong><small>可模拟改走 SAT-21，不执行真实切换</small></span></div><div><b>3</b><span><strong>最后复测</strong><small>切换后的可用度必须用新观测验证</small></span></div></div>{missing.length > 0 && <div className="satelliteMissing"><strong>还缺 {missing.length} 类证据</strong><ul>{missing.slice(0, 3).map((item, index) => <li key={index}>{item}</li>)}</ul></div>}<div className="satelliteRuleBadge"><ShieldCheck size={15} /><span>{passed} 条领域、诊断和路由规则已通过；时延为模型校验，可用度尚未实测。</span></div>{report && <button type="button" className="satelliteTextButton" onClick={() => onDetail({ conclusions: report.conclusions, rules: report.rule_execution })}>查看完整结论与规则 <ChevronRight size={13} /></button>}</>;
+}
+
+function EvidenceSummary({ value }: { value: unknown }) {
+  const container = record(value);
+  const item = record(container.analysis_item ?? value);
+  const rows = array(container.resolved_evidence).map(record);
+  if (Array.isArray(value)) return <div className="satelliteEvidenceReadable"><strong>共 {value.length} 条记录</strong><p>主页面只展示最重要的几项，这里保留全部结果供核对。</p></div>;
+  const title = text(item.object_id ?? item.service_id ?? item.candidate_id ?? item.title ?? item.rule_id);
+  const description = item.mechanism ?? item.description ?? item.reason ?? item.comparison_note ?? item.note;
+  return <div className="satelliteEvidenceReadable">{title !== "—" && <h3>{title}</h3>}{description !== undefined && <p>{text(description)}</p>}{item.status !== undefined && <span className="satelliteEvidenceStatus">判断状态：{text(item.status)}</span>}{rows.length > 0 && <><strong>已找到 {rows.length} 条可追溯证据</strong><div>{rows.slice(0, 8).map((row, index) => <p key={index}><b>{text(row.object_id ?? row.service_id ?? row.source_file ?? `证据 ${index + 1}`)}</b><span>{humanEvidence(row)}</span></p>)}</div></>}{!rows.length && description === undefined && <p>此处保存完整规则、路径或指标明细，供需要时核对。</p>}</div>;
+}
+
+function humanEvidence(row: Record<string, unknown>): string {
+  const known = ["effective_capacity_mbps", "ingress_mbps", "forwarded_mbps", "discarded_mbps", "demand_utilization_pct", "availability_pct", "queue_depth_mb", "event_code"];
+  const parts = known.filter((key) => row[key] !== undefined).map((key) => `${FIELD_LABELS[key] ?? key} ${text(row[key])}`);
+  return parts.length ? parts.join("；") : text(row.description ?? row.metric ?? row.timestamp ?? row.source_file);
 }
 
 function PathLine({ label, nodes }: { label: string; nodes: unknown }) {
