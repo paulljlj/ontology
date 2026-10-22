@@ -180,9 +180,38 @@
 .satelliteEvidenceOverlay .satellitePrimaryButton { margin-top:18px; }
 .satelliteSpin { animation:satellite-spin 1s linear infinite; }
 .srOnly { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0; }
+
+/* 汇报版：默认只展示输入、进度和六部分结论；调试字段仍保留在证据弹窗和下载产物中。 */
+.satelliteSimple { max-width:1380px; }
+.satelliteSimple .satelliteMainGrid { grid-template-columns:1fr;gap:18px; }
+.satelliteSimple .satelliteWorkColumn { gap:14px; }
+.satelliteSimple .satelliteComposer .satelliteInputGrid { grid-template-columns:minmax(280px,520px); }
+.satelliteSimple .satelliteAdvancedControl,
+.satelliteSimple .satelliteComposer > .satelliteAdvanced,
+.satelliteSimple .satelliteComposer > .satellitePresets,
+.satelliteSimple .satelliteComposer > .satellitePresets + .satelliteHelper,
+.satelliteSimple .satelliteTechnicalOnly { display:none; }
+.satelliteSimple .satelliteSubmitRow { margin-top:8px;padding-top:14px; }
+.satelliteSimple .satelliteExecution { padding:15px 20px; }
+.satelliteSimple .satelliteExecution .satelliteSectionHeading { margin-bottom:11px; }
+.satelliteSimple .satelliteExecution .satelliteTaskList { display:none; }
+.satelliteSimple .satelliteExecution .satelliteEmpty { min-height:48px;padding:8px;flex-direction:row;gap:10px; }
+.satelliteSimple .satelliteExecution .satelliteEmpty > svg { width:18px;margin:0; }
+.satelliteSimple .satelliteReportColumn { display:grid;grid-template-columns:repeat(2,minmax(0,1fr)); }
+.satelliteSimple .satelliteReportHeader,
+.satelliteSimple .satelliteReportNotice,
+.satelliteSimple .satelliteReportMeta,
+.satelliteSimple .satelliteDownloads { grid-column:1 / -1; }
+.satelliteSimple .satelliteReportNotice { margin:17px 18px 0; }
+.satelliteSimple .satelliteReportMeta { flex-direction:row;flex-wrap:wrap;gap:8px 24px; }
+.satelliteSimple .satelliteReportPart { min-width:0; }
+.satelliteSimple .satelliteReportPart:nth-of-type(1),
+.satelliteSimple .satelliteReportPart:nth-of-type(6) { grid-column:1 / -1; }
+.satelliteSimple .satelliteReportPart:nth-of-type(even) { border-left:1px solid #e7edf3; }
+.satelliteSimple .satelliteMetricList { grid-template-columns:repeat(6,minmax(0,1fr)); }
 @keyframes satellite-spin { to { transform:rotate(360deg); } }
 @media (min-width:1450px) { .satelliteMainGrid { grid-template-columns:minmax(0,1fr) 425px; } }
 @media (max-width:1120px) { .satelliteMainGrid { grid-template-columns:minmax(0,1fr) 340px;gap:14px; }.satellitePanel { padding:16px; }.satelliteHero h1 { font-size:24px; }.satelliteBoundary { max-width:290px; }.satelliteInputGrid { grid-template-columns:1fr; }.satelliteSubmitRow { align-items:flex-start;flex-direction:column; }.satelliteSubmitRow .satellitePrimaryButton { align-self:flex-end; }.satelliteReportPart { padding:17px; } }
-@media (max-width:850px) { .satelliteMainGrid { grid-template-columns:1fr; }.satelliteHero { gap:20px; }.satelliteBoundary { max-width:280px; }.satelliteReportColumn { margin-top:0; }.satelliteMetricList { grid-template-columns:repeat(3,1fr); }.satelliteInputGrid { grid-template-columns:1fr 1.4fr; } }
+@media (max-width:850px) { .satelliteMainGrid { grid-template-columns:1fr; }.satelliteHero { gap:20px; }.satelliteBoundary { max-width:280px; }.satelliteReportColumn { margin-top:0; }.satelliteMetricList { grid-template-columns:repeat(3,1fr); }.satelliteInputGrid { grid-template-columns:1fr 1.4fr; }.satelliteSimple .satelliteReportColumn { grid-template-columns:1fr; }.satelliteSimple .satelliteReportPart,.satelliteSimple .satelliteReportPart:nth-of-type(1),.satelliteSimple .satelliteReportPart:nth-of-type(6) { grid-column:1; }.satelliteSimple .satelliteReportPart:nth-of-type(even) { border-left:0; }.satelliteSimple .satelliteMetricList { grid-template-columns:repeat(3,1fr); } }
 @media (max-width:600px) { .workspaceModeNav { padding:9px 14px; }.workspaceModeNav > span { display:none; }.workspaceModeNav > div { width:100%; }.workspaceModeNav button { flex:1; }.satelliteWorkspace { padding:0 14px 20px; }.satelliteHeader { min-height:73px;gap:10px;flex-wrap:wrap;padding:12px 0; }.satelliteIdentity strong { font-size:14px; }.satelliteIdentity small { font-size:8px; }.satelliteHistory { padding:6px; }.satelliteHistory select { max-width:145px;font-size:10px; }.satelliteHeaderActions { gap:6px; }.satelliteHero { flex-direction:column;align-items:flex-start;padding:23px 0;gap:18px; }.satelliteHero h1 { font-size:23px; }.satelliteBoundary { max-width:none;padding-left:12px; }.satelliteInputGrid,.satelliteAdvanced .satelliteInputGrid { grid-template-columns:1fr;gap:13px; }.satelliteSectionHeading { align-items:flex-start; }.satelliteSectionHeading > .satelliteMuted { text-align:right;max-width:110px; }.satelliteMetricList { grid-template-columns:1fr 1fr; }.satelliteFooter { align-items:flex-start;flex-direction:column;gap:7px; }.satelliteEvidenceOverlay > section { padding:20px; } }
 @media (prefers-reduced-motion:reduce) { .satelliteSpin { animation:none; }.satelliteProgress > span { transition:none; } }

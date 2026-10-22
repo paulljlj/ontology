@@ -215,7 +215,7 @@ export function SatelliteWorkbench() {
     finally { setSelecting(false); }
   }
 
-  return <main className="satelliteWorkspace">
+  return <main className="satelliteWorkspace satelliteSimple">
     <header className="satelliteHeader">
       <div className="satelliteIdentity"><span className="satelliteLogo"><Satellite size={24} /></span><div><strong>卫星网络分析工作台</strong><small>SATELLITE NETWORK WORKBENCH</small></div></div>
       <div className="satelliteHeaderActions">
@@ -236,15 +236,15 @@ export function SatelliteWorkbench() {
         <section className="satellitePanel satelliteComposer">
           <div className="satelliteSectionHeading"><h2><GitBranch size={18} /> 分析输入</h2><span className="satelliteMuted">仅接受案例编号和参数</span></div>
           <div className="satelliteInputGrid">
-            <label><span>数据案例</span><select value={caseId} onChange={(event) => setCaseId(event.target.value)} disabled={loading || !cases.length}><option value="">{loading ? "正在加载案例…" : "请选择案例"}</option>{cases.map((item) => <option value={item.case_id} key={item.case_id}>{item.case_id} · {item.dataset_kind === "synthetic" ? "合成数据" : item.dataset_kind}</option>)}</select></label>
-            <label><span>诊断方式</span><select value={autoDiagnosis ? diagnosisBackend : "off"} onChange={(event) => {
+            <label className="satellitePrimaryControl"><span>选择分析案例</span><select value={caseId} onChange={(event) => setCaseId(event.target.value)} disabled={loading || !cases.length}><option value="">{loading ? "正在加载案例…" : "请选择案例"}</option>{cases.map((item) => <option value={item.case_id} key={item.case_id}>{item.case_id} · {item.dataset_kind === "synthetic" ? "合成数据" : item.dataset_kind}</option>)}</select></label>
+            <label className="satelliteAdvancedControl"><span>诊断方式</span><select value={autoDiagnosis ? diagnosisBackend : "off"} onChange={(event) => {
               if (event.target.value === "off") setAutoDiagnosis(false);
               else { setAutoDiagnosis(true); setDiagnosisBackend(event.target.value as "local" | "neo4j_mcp"); }
             }}><option value="local">自动诊断（本地时态图）</option><option value="neo4j_mcp">自动诊断（Neo4j MCP）</option><option value="off">不自动诊断</option></select></label>
-            <label><span>待避对象 <small>可选人工覆盖</small></span><input value={avoid} onChange={(event) => setAvoid(event.target.value)} placeholder="留空则采用诊断优先对象；或填 SAT-20" maxLength={600} /></label>
+            <label className="satelliteAdvancedControl"><span>待避对象 <small>可选人工覆盖</small></span><input value={avoid} onChange={(event) => setAvoid(event.target.value)} placeholder="留空则采用诊断优先对象；或填 SAT-20" maxLength={600} /></label>
           </div>
           {selectedCase && <div className="satelliteCaseInfo"><span><Satellite size={14} /> {count(selectedCase.satellites)} 颗卫星</span><span><RadioTower size={14} /> {count(selectedCase.ground_stations)} 个地面站</span><span><Network size={14} /> {count(selectedCase.links)} 条链路</span><span><Clock3 size={14} /> 分析时段 {displayTime(selectedCase.analysis_start)} 至 {displayTime(selectedCase.analysis_end_exclusive)}（不含结束时刻）</span></div>}
-          <label className="satelliteRequirement"><span>本次需要查看什么</span><textarea value={requirement} onChange={(event) => setRequirement(event.target.value)} rows={2} maxLength={3000} /></label>
+          <label className="satelliteRequirement satelliteAdvancedControl"><span>本次需要查看什么</span><textarea value={requirement} onChange={(event) => setRequirement(event.target.value)} rows={2} maxLength={3000} /></label>
           <details className="satelliteAdvanced"><summary>评估时刻与外部诊断输入 <ChevronRight size={14} /></summary><div className="satelliteInputGrid"><label><span>路由评估时刻 at</span><input value={at} onChange={(event) => setAt(event.target.value)} placeholder="带时区的 ISO 时间" /></label><label><span>可读取数据截止时刻 as_of</span><input value={asOf} onChange={(event) => setAsOf(event.target.value)} placeholder="带时区的 ISO 时间" /></label></div><label><span>外部诊断 JSON <small>可选；填写后优先使用它</small></span><textarea className="satelliteCodeInput" value={diagnosisJson} onChange={(event) => setDiagnosisJson(event.target.value)} rows={5} maxLength={200000} placeholder="通常留空，由已接入的同学诊断模块自动生成。" /></label><p className="satelliteHelper">自动诊断只读取观测白名单和截止时刻前的数据，不读取 evaluation。Neo4j MCP 模式需要先启动数据库、导入关系图并配置官方 Server；连接失败会明确报错，不静默退回本地图。</p></details>
           <div className="satellitePresets"><span>演示参数</span><button type="button" onClick={() => usePreset("CASE-001", "SAT-20")}>SAT-20 待避测试</button><button type="button" onClick={() => usePreset("CASE-001", "GS-01")}>GS-01 固定站约束</button><button type="button" onClick={() => usePreset("CASE-008", "SAT-20")}>CASE-008 缺证测试</button></div>
           <p className="satelliteHelper">SAT-20 参数用于拥塞绕行演示，GS-01 检查固定站约束，CASE-008 检查缺证处理。预设只填写参数，不预填诊断结论。</p>
@@ -256,17 +256,17 @@ export function SatelliteWorkbench() {
           {activeRun ? <><div className="satelliteProgress"><span style={{ width: `${progress}%` }} /></div><div className="satelliteProgressCaption"><span>{completed} / {total} 个步骤完成</span><strong>{progress}%</strong></div><ol className="satelliteTaskList">{(activeRun.tasks ?? []).map((task) => <li key={task.id} className={`task-${task.status}`}><TaskIcon status={task.status} /><div><strong>{task.title}</strong><p>{task.description}</p><div className="satelliteTaskMeta"><code>{task.task_key}</code><span>{STATUS[task.status] ?? task.status}</span>{task.started_at && <time>{displayTime(task.started_at)}</time>}</div>{task.outputs?.length > 0 && <p className="satelliteTaskOutput">输出：{task.outputs.map((item) => text(item)).join("、")}</p>}{task.error && <p className="satelliteInlineError">{task.error}</p>}<button type="button" className="satelliteTextButton" onClick={() => setEvidence({ title: `${task.title}：执行证据`, value: task.evidence })}>查看证据 <ChevronRight size={13} /></button></div></li>)}</ol>{!total && <EmptyState text="服务尚未返回执行步骤。" />}{activeRun.error && <p className="satelliteInlineError" role="alert">{activeRun.error}</p>}</> : <EmptyState text="选择案例并发起运行后，这里展示后端真实返回的步骤、输出和错误。" />}
         </section>
 
-        <section className="satellitePanel">
+        <section className="satellitePanel satelliteTechnicalOnly">
           <div className="satelliteSectionHeading"><h2><Network size={18} /> 当前网络关系</h2><span className="satelliteMuted">报告中的实际节点与连接</span></div>
           {report?.topology?.nodes?.length ? <NetworkTopology topology={report.topology} /> : <EmptyState text="尚无拓扑结果。等待后端读取所选时段的连接关系，不生成示意节点替代数据。" />}
         </section>
 
-        <section className="satellitePanel">
+        <section className="satellitePanel satelliteTechnicalOnly">
           <div className="satelliteSectionHeading"><h2><Route size={18} /> 备选路径与模拟对照</h2><span className="satelliteSimulationLabel">仅方案，不切换</span></div>
           <RoutePlans report={report} onEvidence={openEvidence} />
         </section>
 
-        <section className="satellitePanel satelliteMcpPanel">
+        <section className="satellitePanel satelliteMcpPanel satelliteTechnicalOnly">
           <div className="satelliteSectionHeading"><h2><Database size={18} /> 数据接入与 MCP 调用</h2><span className="satelliteMuted">{mcp ? mcp.default_mode === "mcp" ? "默认 MCP 模式" : "默认文件模式" : "状态未获取"}</span></div>
           <p className="satelliteHelper">{mcp?.note ?? "配置状态与真实调用分开展示；配置成功不代表已完成调用。"}</p>
           {report?.provenance?.input_source === "integrated_diagnosis" && <p className="satelliteHelper">诊断关系查询：{report.provenance.diagnosis_graph_backend === "mcp" ? "本次由官方 Neo4j MCP 完成；完整诊断过程保存在原始诊断 JSON 产物。" : "本次使用明确标注的本地时态图模式，不冒充 MCP 调用。"}</p>}
@@ -283,9 +283,9 @@ export function SatelliteWorkbench() {
         <ReportPart number="01" title="异常概况"><p>{report?.overview?.summary ?? "运行后展示观测到的网络状态，不预填异常数量或下降幅度。"}</p>{array(report?.overview?.metrics).length > 0 && <div className="satelliteMetricList">{report!.overview.metrics!.map((metric, index) => <div key={index}><span>{metric.label}</span><strong>{text(metric.value)}<small>{metric.unit}</small></strong></div>)}</div>}{array(report?.overview?.service_comparison).length > 0 && <button type="button" className="satelliteTextButton" onClick={() => setEvidence({ title: "业务指标对比：基线、分析期与持续时间", value: { policy: report?.overview.indicator_policy, summary: report?.overview.indicator_summary, services: report?.overview.service_comparison } })}>查看指标明细与判断口径 <ChevronRight size={13} /></button>}{array(report?.overview?.observations).length > 0 && <button type="button" className="satelliteTextButton" onClick={() => setEvidence({ title: "原始观测摘要", value: report?.overview.observations })}>查看观测记录 <ChevronRight size={13} /></button>}</ReportPart>
         <ReportPart number="02" title="可能原因"><ReportItems section={report?.causes} empty="本次没有诊断原因结论。手动输入待避对象本身不会生成根因。" onEvidence={openEvidence} /></ReportPart>
         <ReportPart number="03" title="需要关注的对象"><ReportItems section={report?.watch_items} empty="尚无诊断提供的风险提示。潜在风险不等于已经发生故障。" onEvidence={openEvidence} /></ReportPart>
-        <ReportPart number="04" title="备选通信路由"><p>{report ? `${array(report.route_options?.proposals).length} 项路径方案，${text(report.route_options?.status)}。` : "根据待避对象，评估可用路径与容量约束。"}</p><p className="satelliteHelper">下方与左侧展示的前后变化均为模拟估计，不是已经实施的优化效果。</p>{strings(report?.route_options?.limitations).map((item, index) => <p key={index} className="satelliteRiskLine"><AlertTriangle size={13} />{item}</p>)}</ReportPart>
+        <ReportPart number="04" title="备选通信路由"><p>{report ? `${array(report.route_options?.proposals).length} 项路径方案，${text(report.route_options?.status)}。` : "根据诊断优先对象评估可用路径与容量约束。"}</p><p className="satelliteHelper">只生成模拟建议，不执行真实切换，也不预测切换后的可用度。</p>{report && <button type="button" className="satelliteTextButton" onClick={() => setEvidence({ title: "备选路线、容量对照与限制条件", value: report.route_options })}>查看路线详情 <ChevronRight size={13} /></button>}</ReportPart>
         <ReportPart number="05" title="影响与其他分析"><ReportItems section={report?.impact} empty="等待运行结果，展示受到影响的业务及相关约束。" onEvidence={openEvidence} /></ReportPart>
-        <ReportPart number="06" title="结论与待查事项">{strings(report?.conclusions?.items).length ? <ul>{strings(report?.conclusions?.items).map((item, index) => <li key={index}>{item}</li>)}</ul> : <p>尚无结论。先完成数据读取，再核查可行性与证据缺口。</p>}{strings(report?.conclusions?.missing_evidence).length > 0 && <div className="satelliteMissing"><strong>还缺哪些证据</strong><ul>{strings(report?.conclusions?.missing_evidence).map((item, index) => <li key={index}>{item}</li>)}</ul></div>}{report?.rule_execution && <button type="button" className="satelliteTextButton" onClick={() => setEvidence({ title: "本体、诊断与路径规则执行情况", value: report.rule_execution })}>查看规则执行结果 <ChevronRight size={13} /></button>}</ReportPart>
+        <ReportPart number="06" title="结论与待查事项">{strings(report?.conclusions?.items).length ? <ul>{strings(report?.conclusions?.items).slice(0, 3).map((item, index) => <li key={index}>{item}</li>)}</ul> : <p>尚无结论。先完成数据读取，再核查可行性与证据缺口。</p>}{strings(report?.conclusions?.missing_evidence).length > 0 && <div className="satelliteMissing"><strong>还缺哪些证据</strong><ul>{strings(report?.conclusions?.missing_evidence).slice(0, 3).map((item, index) => <li key={index}>{item}</li>)}</ul></div>}{report && <button type="button" className="satelliteTextButton" onClick={() => setEvidence({ title: "完整结论、待补证据与规则执行情况", value: { conclusions: report.conclusions, rules: report.rule_execution } })}>查看完整结论与规则 <ChevronRight size={13} /></button>}</ReportPart>
         <div className="satelliteDownloads"><h3><Download size={15} /> 报告与运行记录</h3>{activeRun?.artifacts?.length ? activeRun.artifacts.map((artifact) => <a key={artifact.id} href={satelliteApi.artifactUrl(artifact.download_url)} target="_blank" rel="noreferrer"><FileJson size={16} /><span>{typeof artifact.metadata?.display_name === "string" ? artifact.metadata.display_name : artifact.name}<small>{artifact.mime_type.includes("json") ? "结构化 JSON" : artifact.mime_type.includes("html") ? "可阅读 HTML" : artifact.kind}</small></span><Download size={14} /></a>) : <p>运行完成后，下载后端实际生成的 JSON / HTML 文件。</p>}</div>
       </aside>
     </div>
@@ -309,12 +309,13 @@ function JsonDetails({ value, expanded = false }: { value: unknown; expanded?: b
 }
 function ReportItems({ section, empty, onEvidence }: { section?: SatelliteSection; empty: string; onEvidence: (title: string, value: unknown) => void }) {
   const items = array(section?.items);
-  return <>{section?.note && <p>{section.note}</p>}{items.length ? <div className="satelliteReportItems">{items.map((value, index) => {
+  const visible = items.slice(0, 3);
+  return <>{section?.note && <p>{section.note}</p>}{items.length ? <div className="satelliteReportItems">{visible.map((value, index) => {
     const item = record(value);
-    const title = text(item.title ?? item.name ?? item.object_id ?? item.candidate_id ?? item.hypothesis ?? item.cause ?? `分析项 ${index + 1}`);
+    const title = text(item.title ?? item.name ?? item.object_id ?? item.service_id ?? item.candidate_id ?? item.hypothesis ?? item.cause ?? `分析项 ${index + 1}`);
     const description = item.description ?? item.reason ?? item.mechanism ?? item.note ?? item.summary;
     return <article key={index}><strong>{title}</strong>{description !== undefined && <p>{text(description)}</p>}{item.status !== undefined && <span className="satelliteItemState">{text(item.status)}</span>}<button type="button" className="satelliteTextButton" onClick={() => onEvidence(title, item)}>查看依据与字段 <ChevronRight size={12} /></button></article>;
-  })}</div> : <p className="satelliteHelper">{empty}</p>}</>;
+  })}{items.length > visible.length && <button type="button" className="satelliteTextButton" onClick={() => onEvidence(`全部 ${items.length} 项分析结果`, items)}>查看其余 {items.length - visible.length} 项 <ChevronRight size={12} /></button>}</div> : <p className="satelliteHelper">{empty}</p>}</>;
 }
 
 function PathLine({ label, nodes }: { label: string; nodes: unknown }) {
