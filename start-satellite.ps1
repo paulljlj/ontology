@@ -36,6 +36,14 @@ $satelliteOverrides = @{
   VITE_API_BASE = "http://127.0.0.1:$BackendPort/api"
   PYTHONIOENCODING = 'utf-8'
 }
+$satelliteNeo4jMcp = Join-Path $satelliteRuntime 'python\Scripts\neo4j-mcp-server.exe'
+if (Test-Path -LiteralPath $satelliteNeo4jMcp -PathType Leaf) {
+  $satelliteOverrides['NEO4J_MCP_BIN'] = $satelliteNeo4jMcp
+  $satelliteOverrides['NEO4J_MCP_URI'] = 'bolt://127.0.0.1:7687'
+  $satelliteOverrides['NEO4J_MCP_USERNAME'] = 'neo4j'
+  $satelliteOverrides['NEO4J_MCP_PASSWORD'] = 'ontology'
+  $satelliteOverrides['NEO4J_MCP_DATABASE'] = 'ontology'
+}
 $satellitePrevious = @{}
 try {
   foreach ($satelliteKey in $satelliteOverrides.Keys) {
@@ -51,7 +59,7 @@ try {
   [PSCustomObject]@{ backend_pid=$satelliteBackend.Id; frontend_pid=$satelliteFrontend.Id; backend_port=$BackendPort; frontend_port=$FrontendPort; workspace=$satelliteRoot; backend_created_utc=$satelliteBackendInfo.CreationDate.ToUniversalTime().ToString('o'); frontend_created_utc=$satelliteFrontendInfo.CreationDate.ToUniversalTime().ToString('o'); backend_executable=$satelliteBackendInfo.ExecutablePath; frontend_executable=$satelliteFrontendInfo.ExecutablePath } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $satelliteRuntime 'preview-processes.json') -Encoding utf8
   Write-Output "Satellite preview: http://127.0.0.1:$FrontendPort"
   Write-Output "API docs: http://127.0.0.1:$BackendPort/docs"
-  Write-Output 'Isolated SQLite database; Feishu disabled; existing .env and databases unchanged.'
+  Write-Output 'Satellite workflow enabled; Neo4j MCP is used when its isolated executable and Docker database are available.'
 } finally {
   foreach ($satelliteKey in $satellitePrevious.Keys) { [Environment]::SetEnvironmentVariable($satelliteKey, $satellitePrevious[$satelliteKey], 'Process') }
 }

@@ -108,7 +108,8 @@ def main(argv=None) -> int:
             uri=os.environ['NEO4J_MCP_URI']
             user=os.environ['NEO4J_MCP_USERNAME']
             password=os.environ['NEO4J_MCP_PASSWORD']
-            print(json.dumps(import_graph(args.data,uri,user,password),ensure_ascii=False))
+            database=os.environ.get('NEO4J_MCP_DATABASE','neo4j')
+            print(json.dumps(import_graph(args.data,uri,user,password,database),ensure_ascii=False))
             return 0
         cases=[args.case] if args.case else [r['case_id'] for r in read_table(args.data,'cases')]
         if args.cutoff and len(cases)!=1:

@@ -36,6 +36,7 @@ Invoke-SatelliteChecked $satelliteAppPython @('-m','ensurepip','--upgrade')
 Invoke-SatelliteChecked $satelliteMcpPython @('-m','ensurepip','--upgrade')
 Invoke-SatelliteChecked $satelliteAppPython @('-m','pip','install','-r',(Join-Path $satelliteRoot 'backend\requirements-satellite.txt'))
 Invoke-SatelliteChecked $satelliteMcpPython @('-m','pip','install','-r',(Join-Path $satelliteRoot 'backend\mcp\python-runtime.lock'))
+Invoke-SatelliteChecked $satelliteMcpPython @('-m','pip','install','-r',(Join-Path $satelliteRoot 'backend\requirements-satellite-mcp.txt'))
 $satellitePreviousPath = $env:PATH
 try {
   # Run npm itself and its lifecycle scripts with the explicitly selected Node.

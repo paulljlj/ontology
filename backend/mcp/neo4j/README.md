@@ -4,7 +4,8 @@
 
 1. 安装 Docker，设置私有环境变量 `NEO4J_PASSWORD`，在本目录执行 `docker compose up -d`。
 2. 安装项目后端依赖，设置 `NEO4J_MCP_URI`、`NEO4J_MCP_USERNAME`、`NEO4J_MCP_PASSWORD`。
-3. 从官方 `neo4j/mcp` v1.6.0 Release 下载当前系统架构的二进制；不要把二进制、密码或数据库卷提交到仓库。设置 `NEO4J_MCP_BIN` 为其绝对路径。
+3. 在隔离的 MCP 环境安装官方 `neo4j-mcp-server==1.6.0`（或从官方 Release 下载二进制）；不要把二进制、密码或数据库卷提交到仓库。Windows 的 PyPI 安装入口通常为 `Scripts/neo4j-mcp-server.exe`，将其绝对路径设置为 `NEO4J_MCP_BIN`。
+   若复用仓库根目录的原系统 Compose，还应设置 `NEO4J_MCP_DATABASE=ontology`；独立的本文件夹 Compose 使用默认数据库 `neo4j`。
 4. 从仓库根执行图导入：
 
    ```powershell

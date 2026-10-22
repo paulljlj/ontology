@@ -419,7 +419,9 @@ async def _execute(run_id: str):
                     run = session.get(WorkflowRunORM, run_id)
                     summary = dict(run.summary)
                     summary.update(progress=round((index + 1) / len(tasks) * 100), completed_tasks=index + 1)
-                    if context.get("report"): summary["satellite_report"] = context["report"]
+                    if context.get("report"):
+                        summary["satellite_report"] = context["report"]
+                        summary["diagnosis_status"] = context["report"]["diagnosis_status"]
                     if context.get("gateway"): summary["mcp_call_count"] = len(context["gateway"].calls)
                     run.summary = summary
             except BaseException as exc:

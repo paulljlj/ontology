@@ -53,7 +53,8 @@ class MCPGraph:
         from mcp import StdioServerParameters
         settings = {**os.environ, **self.env, 'NEO4J_MCP_READ_ONLY': 'true',
                     'NEO4J_MCP_TELEMETRY': 'false'}
-        for key in ('NEO4J_MCP_URI', 'NEO4J_MCP_USERNAME', 'NEO4J_MCP_PASSWORD'):
+        for key in ('NEO4J_MCP_URI', 'NEO4J_MCP_USERNAME', 'NEO4J_MCP_PASSWORD',
+                    'NEO4J_MCP_DATABASE'):
             if not settings.get(key):
                 raise RuntimeError(key + ' must be set for MCP mode')
         server = StdioServerParameters(command=self.executable, args=[], env=settings)
@@ -100,7 +101,8 @@ class MCPGraph:
         return asyncio.run(self._query_many(case_id, when_values))
 
 
-def import_graph(root: str | Path, uri: str, user: str, password: str) -> dict:
+def import_graph(root: str | Path, uri: str, user: str, password: str,
+                 database: str = 'neo4j') -> dict:
     """Idempotent graph population; never reads evaluation files."""
     from neo4j import GraphDatabase
     tables = {name: read_table(root, name) for name in ('nodes','links','services','routes','route_hops')}
@@ -134,7 +136,7 @@ def import_graph(root: str | Path, uri: str, user: str, password: str) -> dict:
               (l:SatLink {dataset_id:$ds,link_id:r.outgoing_link_id})
             MERGE (h)-[:OUTGOING]->(l)''', tables['route_hops'])]
     try:
-        with driver.session(database='neo4j') as session:
+        with driver.session(database=database) as session:
             for stmt, rows in statements:
                 if rows is None:
                     session.run(stmt).consume()

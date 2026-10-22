@@ -2,3 +2,6 @@
 mcp-server-motherduck==1.0.8
 duckdb==1.5.5
 mcp==1.29.0
+fastmcp==3.4.9
+neo4j-mcp-server==1.6.0
+neo4j>=5.27,<7

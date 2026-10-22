@@ -28,8 +28,15 @@ def mcp_config() -> dict:
 
 def mcp_public_status() -> dict:
     config = mcp_config()
-    return {"default_mode": config.get("default_mode", "file"), "note": config.get("note", ""),
-        "servers": [{"name": name, "enabled": bool(s.get("enabled")), "transport": s.get("transport", "stdio"),
+    servers = [{"name": name, "enabled": bool(s.get("enabled")), "transport": s.get("transport", "stdio"),
             "tools": list(s.get("allowed_tools", [])), "status": "configured_not_probed" if s.get("enabled") else "disabled",
             "source": s.get("source", ""), "version": s.get("version", "")}
-            for name, s in config.get("servers", {}).items()]}
+            for name, s in config.get("servers", {}).items()]
+    binary = os.environ.get("NEO4J_MCP_BIN", "")
+    neo4j_enabled = bool(binary and Path(binary).is_file() and os.environ.get("NEO4J_MCP_URI"))
+    servers.append({"name": "neo4j", "enabled": neo4j_enabled, "transport": "stdio",
+        "tools": ["get-schema", "read-cypher"],
+        "status": "configured_not_probed" if neo4j_enabled else "disabled",
+        "source": "https://github.com/neo4j/mcp", "version": "1.6.0"})
+    return {"default_mode": config.get("default_mode", "file"), "note": config.get("note", ""),
+        "servers": servers}

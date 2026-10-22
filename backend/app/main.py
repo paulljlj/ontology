@@ -25,9 +25,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="本体智能体工作台",
-    description="本体驱动的需求理解、任务编排、推理执行与结果交付平台",
-    version="0.1.0",
+    title="本体驱动卫星网络根因分析系统",
+    description="卫星网络异常检测、关系推理、根因候选、备选路径与证据报告平台",
+    version="1.0.0",
     lifespan=lifespan,
 )
 
@@ -47,7 +47,7 @@ app.include_router(satellite_router, prefix="/api")
 @app.get("/")
 def root():
     return {
-        "name": "本体智能体工作台",
+        "name": "本体驱动卫星网络根因分析系统",
         "docs": "/docs",
         "health": "/api/health",
     }
