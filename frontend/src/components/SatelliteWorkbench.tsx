@@ -289,10 +289,8 @@ export function SatelliteWorkbench() {
           {mcp && !mcp.servers?.length && <p className="satelliteHelper">未配置外部 MCP 服务器。文件模式仍须以后端实际执行结果为准。</p>}
           {mcpCalls.length ? <div className="satelliteTableScroll"><table className="satelliteCallTable"><thead><tr><th>服务器 / 工具</th><th>所属步骤</th><th>耗时</th><th>结果</th></tr></thead><tbody>{mcpCalls.map((call, index) => <tr key={index}><td><strong>{text(call.server ?? call.server_name)}</strong><code>{text(call.tool ?? call.tool_name ?? call.name)}</code></td><td>{text(call.task)}</td><td>{text(call.duration_ms ?? call.elapsed_ms)} ms</td><td>{text(call.status ?? (typeof call.ok === "boolean" ? call.ok ? "success" : "error" : undefined))}{typeof call.error === "string" && <small className="satelliteInlineError">{call.error}</small>}</td></tr>)}</tbody></table></div> : <div className="satelliteNoCalls">当前运行没有返回 MCP 调用记录。不会用工具标签代替真实调用。</div>}
         </section>
-      </div>
-
-      <aside className="satelliteReportColumn" aria-label="卫星分析报告">
-        <div className="satelliteReportHeader"><div><FileJson size={20} /><h2>分析报告</h2></div><span>六部分结果</span></div>
+      <section className="satelliteReportColumn satelliteAnalysisBoard" aria-label="卫星诊断分析看板">
+        <div className="satelliteReportHeader"><div><Activity size={20} /><h2>诊断分析看板</h2></div><span>六部分核心结果</span></div>
         <div className="satelliteReportNotice"><strong>{report?.provenance?.input_source === "integrated_diagnosis" ? "已完成自动诊断" : report?.diagnosis_status === "provided" ? "已接收外部诊断" : "本次未启用诊断"}</strong><p>{report?.provenance?.input_source === "integrated_diagnosis" ? "已运行同学交付的诊断代码，逐项核对观测证据，再把优先候选交给路径模块。" : report?.diagnosis_status === "provided" ? "原因与风险来自提供的诊断 JSON，尚不代表因果已经确认。" : "当前只展示观测与手动条件下的路由模拟，不自动确认异常原因。"}</p>{report?.provenance?.diagnosis_is_fixture && <b>诊断数据标记为演示 fixture，不能用于真实故障结论。</b>}</div>
         {report && <div className="satelliteReportMeta"><span>{report.case_id} · {report.dataset_kind === "synthetic" ? "合成数据" : report.dataset_kind}</span><span>评估时刻 {displayTime(report.at)}</span><span>数据截止 {displayTime(report.as_of)}</span><span>输入来源：{report.provenance?.input_source === "integrated_diagnosis" ? `自动诊断（${report.provenance.diagnosis_graph_backend === "mcp" ? "Neo4j MCP" : "本地时态图"}）` : report.provenance?.input_source === "diagnosis_json" ? "外部诊断 JSON" : "手动评估条件"}</span></div>}
         <ReportPart number="01" title="异常概况" wide><AnomalyOverview report={report} onDetail={(value) => setEvidence({ title: "业务可用度明细与判断标准", value })} /></ReportPart>
@@ -302,7 +300,9 @@ export function SatelliteWorkbench() {
         <ReportPart number="04" title="备选通信路径"><RouteOverview report={report} onDetail={(value) => setEvidence({ title: "完整路线、容量与限制条件", value })} /></ReportPart>
         <ReportPart number="05" title="影响与正常对照"><ImpactOverview report={report} onDetail={openEvidence} /></ReportPart>
         <ReportPart number="06" title="结论与处理建议" wide><ConclusionOverview report={report} onDetail={(value) => setEvidence({ title: "完整结论与规则执行情况", value })} /></ReportPart>
-      </aside>
+      </section>
+      </div>
+      <ExecutiveSummary report={report} activeRun={activeRun} onDetail={(title, value) => setEvidence({ title, value })} />
     </div>
     <footer className="satelliteFooter"><span>本体关系与能力编排</span><p>合成数据用于验证流程。诊断结论、路由模拟和真实设备操作严格区分。</p></footer>
     {evidence && <div className="satelliteEvidenceOverlay" role="dialog" aria-modal="true" aria-label={evidence.title} onClick={() => setEvidence(null)}><section onClick={(event) => event.stopPropagation()}><header><div><span>结论依据</span><h2>{evidence.title}</h2></div><button type="button" className="satelliteIconButton" aria-label="关闭证据" onClick={() => setEvidence(null)}><X size={20} /></button></header><p>先看下面的中文摘要；确需核对接口字段时，再展开底部技术数据。</p><EvidenceSummary value={evidence.value} /><JsonDetails value={evidence.value} /><button type="button" className="satellitePrimaryButton" onClick={() => setEvidence(null)}>返回报告</button></section></div>}
@@ -318,6 +318,40 @@ function TaskIcon({ status }: { status: string }) {
 function EmptyState({ text: message }: { text: string }) { return <div className="satelliteEmpty"><Network size={28} /><p>{message}</p></div>; }
 function ReportPart({ number, title, wide = false, children }: { number: string; title: string; wide?: boolean; children: React.ReactNode }) {
   return <section className={`satelliteReportPart${wide ? " satelliteReportWide" : ""}`}><h3><span>{number}</span>{title}</h3>{children}</section>;
+}
+
+function ExecutiveSummary({ report, activeRun, onDetail }: { report?: SatelliteReport; activeRun: SatelliteRun | null; onDetail: (title: string, value: unknown) => void }) {
+  const comparison = array(report?.overview?.service_comparison).map(record);
+  const major = comparison.filter((row) => row.classification === "major");
+  const watch = comparison.filter((row) => row.classification === "watch");
+  const averageDrop = major.reduce((sum, row) => sum + (number(row.mean_drop_pp) ?? 0), 0) / Math.max(1, major.length);
+  const causes = array(report?.causes?.items).map(record);
+  const primary = causes.find((item) => item.status === "supported") ?? causes[0];
+  const proposal = record(array(report?.route_options?.proposals)[0]);
+  const routeChanges = array(proposal.changes).map(record);
+  const impactItems = array(report?.impact?.items).map(record);
+  const impact = impactItems.find((item) => array(item.affected_service_ids).length) ?? {};
+  const passedRules = number(report?.rule_execution?.summary?.passed) ?? 0;
+  const conclusion = strings(report?.conclusions?.items)[0];
+  const graphLabel = report?.provenance?.diagnosis_graph_backend === "mcp" ? "Neo4j MCP" : "本地时态图";
+  const diagnosisReady = report?.provenance?.input_source === "integrated_diagnosis" || report?.diagnosis_status === "provided";
+  return <aside className="satelliteInsightRail" aria-label="分析报告摘要">
+    <header><div><span className="satelliteRailIcon"><FileJson size={18} /></span><div><small>ANALYSIS REPORT</small><h2>分析报告</h2></div></div><span className={`satelliteRailState ${diagnosisReady ? "is-ready" : ""}`}>{diagnosisReady ? "已生成" : "等待分析"}</span></header>
+    <div className="satelliteRailMeta"><span>{report?.case_id ?? "尚未选择结果"}</span><span>{report ? displayTime(report.at) : "运行后显示评估时刻"}</span></div>
+    <div className="satelliteRailSections">
+      <RailSection number="1" title="异常概况" tone="danger"><p>{major.length ? `发现 ${major.length} 个业务发生重大下降，平均下降 ${averageDrop.toFixed(2)} 个百分点。` : "等待异常业务和下降幅度结果。"}</p><div className="satelliteRailChips"><span>{major.length} 重大</span><span>{watch.length} 关注</span></div></RailSection>
+      <RailSection number="2" title="本体关系推理" tone="blue"><p>{primary ? `沿当前有效路由找到共同依赖候选 ${text(primary.object_id)}。` : "等待按业务—路由—节点关系生成候选。"}</p><small>{passedRules} 条规则通过 · {graphLabel}</small></RailSection>
+      <RailSection number="3" title="根因候选" tone="warning"><p>{primary ? <><strong>{text(primary.object_id)}</strong>：{text(primary.mechanism)}</> : "当前没有足够证据支持优先候选。"}</p>{primary && <button type="button" onClick={() => onDetail(`${text(primary.object_id)}：候选依据`, primary)}>查看依据 <ChevronRight size={12} /></button>}</RailSection>
+      <RailSection number="4" title="潜在或轻微异常" tone="warning"><p>{watch.length ? `${watch.length} 个业务尚未越过重大阈值，但存在持续下降。` : "没有发现需要单独关注的轻微持续下降。"}</p><small>{watch.slice(0, 4).map((item) => text(item.service_id)).join("、") || "—"}</small></RailSection>
+      <RailSection number="5" title="备选通信路径" tone="green"><p>{routeChanges.length ? `已模拟 ${routeChanges.length} 条业务的备选路径，未执行真实切换。` : `当前路径结果：${text(report?.route_options?.status)}。`}</p>{routeChanges.length > 0 && <button type="button" onClick={() => onDetail("备选通信路径与约束", report?.route_options)}>查看路径 <ChevronRight size={12} /></button>}</RailSection>
+      <RailSection number="6" title="结论" tone="blue"><p>{conclusion ?? (primary ? `建议优先核查 ${text(primary.object_id)}，再进行绕行模拟和复测。` : "当前证据不足，保留候选并继续观察。")}</p><small>{array(impact.affected_service_ids).length} 个业务受影响 · 候选不等于确认故障</small></RailSection>
+    </div>
+    <footer><ShieldCheck size={15} /><span>{activeRun ? `${STATUS[activeRun.status] ?? activeRun.status} · ` : ""}结论可追溯到规则、时点和观测证据</span></footer>
+  </aside>;
+}
+
+function RailSection({ number: sectionNumber, title, tone, children }: { number: string; title: string; tone: string; children: React.ReactNode }) {
+  return <section className={`satelliteRailSection tone-${tone}`}><header><span>{sectionNumber}</span><h3>{title}</h3></header><div>{children}</div></section>;
 }
 function JsonDetails({ value, expanded = false }: { value: unknown; expanded?: boolean }) {
   return <details className="satelliteJson" open={expanded}><summary>结构化数据与原始字段</summary><pre>{JSON.stringify(value ?? null, null, 2)}</pre></details>;
