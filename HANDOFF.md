@@ -181,6 +181,8 @@ task_key是本次业务步骤标识；每步skill_spec有processor、依赖、�
 
 前端默认“自动诊断（本地时态图）”，也可选择“Neo4j MCP”或关闭。粘贴外部`DiagnosisInput`时外部JSON优先，仍保留原接口兼容性。详细映射、命令和验收见`docs/同学诊断模块_整合说明.md`。
 
+2026-10-23 前端在“异常概况”和“根因候选”之间新增“本体语义与关系推理”可视化：展示当前OWL具体领域类、卫星关系、领域规则通过数，以及`NetworkService → Route → Satellite/GroundStation/CommunicationLink → 证据排序`的本次执行链。主页面只讲中文摘要，完整类、关系和规则收进侧边详情。这里准确表达为“OWL语义约束 + 时态关系展开 + 诊断规则生成候选”；不声称Pellet自动证明故障原因，也不把共同依赖候选写成已确认因果。
+
 接下来重点：
 
 1. 在有Docker/Neo4j的环境完成官方MCP v1.6.0实机导入、`get-schema`和`read-cypher`成功调用，保留日志；未完成前只称“可选已接入”，不称“已验收”。

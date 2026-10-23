@@ -295,12 +295,13 @@ export function SatelliteWorkbench() {
         <div className="satelliteReportHeader"><div><FileJson size={20} /><h2>分析报告</h2></div><span>六部分结果</span></div>
         <div className="satelliteReportNotice"><strong>{report?.provenance?.input_source === "integrated_diagnosis" ? "已完成自动诊断" : report?.diagnosis_status === "provided" ? "已接收外部诊断" : "本次未启用诊断"}</strong><p>{report?.provenance?.input_source === "integrated_diagnosis" ? "已运行同学交付的诊断代码，逐项核对观测证据，再把优先候选交给路径模块。" : report?.diagnosis_status === "provided" ? "原因与风险来自提供的诊断 JSON，尚不代表因果已经确认。" : "当前只展示观测与手动条件下的路由模拟，不自动确认异常原因。"}</p>{report?.provenance?.diagnosis_is_fixture && <b>诊断数据标记为演示 fixture，不能用于真实故障结论。</b>}</div>
         {report && <div className="satelliteReportMeta"><span>{report.case_id} · {report.dataset_kind === "synthetic" ? "合成数据" : report.dataset_kind}</span><span>评估时刻 {displayTime(report.at)}</span><span>数据截止 {displayTime(report.as_of)}</span><span>输入来源：{report.provenance?.input_source === "integrated_diagnosis" ? `自动诊断（${report.provenance.diagnosis_graph_backend === "mcp" ? "Neo4j MCP" : "本地时态图"}）` : report.provenance?.input_source === "diagnosis_json" ? "外部诊断 JSON" : "手动评估条件"}</span></div>}
-        <ReportPart number="01" title="异常概况"><AnomalyOverview report={report} onDetail={(value) => setEvidence({ title: "业务可用度明细与判断标准", value })} /></ReportPart>
+        <ReportPart number="01" title="异常概况" wide><AnomalyOverview report={report} onDetail={(value) => setEvidence({ title: "业务可用度明细与判断标准", value })} /></ReportPart>
+        <OntologyReasoningPanel report={report} onDetail={(value) => setEvidence({ title: "OWL 本体类、关系与本次规则执行", value })} />
         <ReportPart number="02" title="根因候选与异常原因"><CauseOverview report={report} evidence={diagnosisEvidence} onDetail={openEvidence} /></ReportPart>
         <ReportPart number="03" title="潜在或轻微异常"><WatchOverview report={report} onDetail={openEvidence} /></ReportPart>
         <ReportPart number="04" title="备选通信路径"><RouteOverview report={report} onDetail={(value) => setEvidence({ title: "完整路线、容量与限制条件", value })} /></ReportPart>
         <ReportPart number="05" title="影响与正常对照"><ImpactOverview report={report} onDetail={openEvidence} /></ReportPart>
-        <ReportPart number="06" title="结论与处理建议"><ConclusionOverview report={report} onDetail={(value) => setEvidence({ title: "完整结论与规则执行情况", value })} /></ReportPart>
+        <ReportPart number="06" title="结论与处理建议" wide><ConclusionOverview report={report} onDetail={(value) => setEvidence({ title: "完整结论与规则执行情况", value })} /></ReportPart>
       </aside>
     </div>
     <footer className="satelliteFooter"><span>本体关系与能力编排</span><p>合成数据用于验证流程。诊断结论、路由模拟和真实设备操作严格区分。</p></footer>
@@ -315,8 +316,8 @@ function TaskIcon({ status }: { status: string }) {
   return <span className="satellitePendingCircle" />;
 }
 function EmptyState({ text: message }: { text: string }) { return <div className="satelliteEmpty"><Network size={28} /><p>{message}</p></div>; }
-function ReportPart({ number, title, children }: { number: string; title: string; children: React.ReactNode }) {
-  return <section className="satelliteReportPart"><h3><span>{number}</span>{title}</h3>{children}</section>;
+function ReportPart({ number, title, wide = false, children }: { number: string; title: string; wide?: boolean; children: React.ReactNode }) {
+  return <section className={`satelliteReportPart${wide ? " satelliteReportWide" : ""}`}><h3><span>{number}</span>{title}</h3>{children}</section>;
 }
 function JsonDetails({ value, expanded = false }: { value: unknown; expanded?: boolean }) {
   return <details className="satelliteJson" open={expanded}><summary>结构化数据与原始字段</summary><pre>{JSON.stringify(value ?? null, null, 2)}</pre></details>;
@@ -339,6 +340,34 @@ function AnomalyOverview({ report, onDetail }: { report?: SatelliteReport; onDet
 
 function MetricCard({ label, value, unit, tone }: { label: string; value: unknown; unit: string; tone: string }) {
   return <div className={`satelliteHeadlineMetric tone-${tone}`}><span>{label}</span><strong>{text(value)}<small>{unit}</small></strong></div>;
+}
+
+function OntologyReasoningPanel({ report, onDetail }: { report?: SatelliteReport; onDetail: (value: unknown) => void }) {
+  const comparison = array(report?.overview?.service_comparison).map(record);
+  const major = comparison.filter((row) => row.classification === "major");
+  const candidates = array(report?.causes?.items).map(record);
+  const primary = candidates.find((item) => item.status === "supported") ?? candidates[0];
+  const domainRules = array(report?.rule_execution?.domain_rules).map(record);
+  const passedDomain = domainRules.filter((rule) => rule.status === "passed").length;
+  const graphMode = report?.provenance?.diagnosis_graph_backend === "mcp" ? "Neo4j MCP 时态关系图" : "本地时态关系图";
+  const classes = [
+    ["NetworkService", "端到端业务"], ["Route", "有效路由"], ["Satellite", "卫星"],
+    ["GroundStation", "地面站"], ["CommunicationLink", "通信链路"],
+    ["MetricObservation", "指标观测"], ["AlarmEvent", "告警事件"],
+    ["RouteProposal", "备选路线"], ["NetworkSnapshot", "网络快照"],
+  ];
+  const relationRows = [
+    { source: "NetworkService", relation: "SERVICE_USES_ROUTE", target: "Route" },
+    { source: "Route", relation: "ROUTE_USES_NODE", target: "Satellite / GroundStation" },
+    { source: "Route", relation: "ROUTE_USES_LINK", target: "CommunicationLink" },
+    { source: "CommunicationLink", relation: "LINK_SOURCE", target: "NetworkNode" },
+    { source: "CommunicationLink", relation: "LINK_TARGET", target: "NetworkNode" },
+    { source: "MetricObservation", relation: "OBSERVES_ENTITY", target: "NetworkEntity" },
+    { source: "AlarmEvent", relation: "ALARM_ON_ENTITY", target: "NetworkEntity" },
+    { source: "NetworkSnapshot", relation: "SNAPSHOT_CONTAINS", target: "NetworkEntity" },
+    { source: "RouteProposal", relation: "PROPOSAL_FOR_SERVICE", target: "NetworkService" },
+  ];
+  return <section className="satelliteOntologyPanel"><header><div><span className="satelliteOntologyMark">OWL</span><div><h3>本体语义与关系推理</h3><p>本体限定“对象是什么、关系是否合法”；时态关系规则沿当前有效路由生成共同依赖候选。</p></div></div><button type="button" onClick={() => onDetail({ classes, relations: relationRows, domain_rules: domainRules, diagnostic_rules: report?.rule_execution?.diagnostic_rules })}>查看类与规则 <ChevronRight size={13} /></button></header><div className="satelliteOntologyStats"><span><b>9</b> 个具体领域类</span><span><b>9</b> 种卫星领域关系</span><span><b>{passedDomain}</b> 条本体/快照规则通过</span><span><b>{graphMode}</b> 本次关系来源</span></div><div className="satelliteOntologyClasses">{classes.map(([name, label]) => <div key={name}><code>{name}</code><span>{label}</span></div>)}</div><div className="satelliteOntologyRelations"><div className="satelliteOntologyNode is-service"><small>异常实例</small><strong>{major.length} 个 NetworkService</strong></div><div className="satelliteOntologyEdge"><span>SERVICE_USES_ROUTE</span><i>→</i></div><div className="satelliteOntologyNode"><small>按时间选择</small><strong>有效 Route</strong></div><div className="satelliteOntologyEdge"><span>ROUTE_USES_NODE / LINK</span><i>→</i></div><div className="satelliteOntologyNode is-candidate"><small>共同依赖规则</small><strong>{text(primary?.object_id)} + {Math.max(0, candidates.length - 1)} 个候选</strong></div><div className="satelliteOntologyEdge"><span>指标 + 告警 + 正常对照</span><i>→</i></div><div className="satelliteOntologyNode is-result"><small>证据排序</small><strong>优先核查 {text(primary?.object_id)}</strong></div></div><div className="satelliteOntologyBoundary"><Info size={14} /><span>推理结果是“潜在共同依赖关系和候选顺序”，不是 OWL 自动证明设备故障。根因判断仍由后续观测证据支持或反驳。</span></div></section>;
 }
 
 function CauseOverview({ report, evidence, onDetail }: { report?: SatelliteReport; evidence: Record<string, unknown>[]; onDetail: (title: string, value: unknown) => void }) {
